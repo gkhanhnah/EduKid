@@ -1,0 +1,6 @@
+export function formatDate(value) {
+  if (value == null) return '—'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString()
+}
