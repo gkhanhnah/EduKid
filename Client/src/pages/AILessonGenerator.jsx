@@ -1,221 +1,374 @@
-import { Fragment, jsx, jsxs } from "react/jsx-runtime";
-import { useState } from "react";
-import { Sidebar } from "../components/Sidebar.jsx";
-import { Sparkles, Wand2, BookOpen, FileText } from "lucide-react";
-import { motion } from "framer-motion";
-function AILessonGenerator() {
-  const [topic, setTopic] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [lessonPlan, setLessonPlan] = useState(null);
-  const handleGenerate = () => {
-    if (!topic.trim()) return;
-    setIsGenerating(true);
-    setTimeout(() => {
-      const mockLesson = {
-        topic,
-        objective: `To help Grade 1 students understand and learn about ${topic}`,
-        slides: [
-          {
-            title: `Introduction to ${topic}`,
-            content: `Let's explore the wonderful world of ${topic}! This lesson will help you understand the basics in a fun and engaging way.`
-          },
-          {
-            title: "Main Concepts",
-            content: `Here are the key things to remember about ${topic}. We'll use pictures, songs, and games to help you learn!`
-          },
-          {
-            title: "Practice Time",
-            content: `Now it's your turn! Let's practice what we've learned with some fun activities.`
-          },
-          {
-            title: "Review & Wrap Up",
-            content: `Great job! Let's review what we learned today about ${topic}.`
-          }
-        ],
-        exercises: [
-          {
-            type: "Drawing",
-            question: `Draw a picture about ${topic}`
-          },
-          {
-            type: "Matching",
-            question: `Match the items related to ${topic}`
-          },
-          {
-            type: "Quiz",
-            question: `Answer simple questions about ${topic}`
-          }
-        ]
-      };
-      setLessonPlan(mockLesson);
-      setIsGenerating(false);
-    }, 2e3);
-  };
-  return /* @__PURE__ */ jsxs("div", { className: "flex h-screen bg-background", children: [
-    /* @__PURE__ */ jsx(Sidebar, {}),
-    /* @__PURE__ */ jsx("div", { className: "flex-1 overflow-auto", children: /* @__PURE__ */ jsxs("div", { className: "p-8", children: [
-      /* @__PURE__ */ jsxs("div", { className: "mb-8", children: [
-        /* @__PURE__ */ jsxs("h1", { className: "mb-2 flex items-center gap-3", children: [
-          /* @__PURE__ */ jsx(Sparkles, { className: "w-10 h-10 text-[#8B5CF6]" }),
-          "AI Lesson Generator"
-        ] }),
-        /* @__PURE__ */ jsx("p", { className: "text-[1.125rem] text-muted-foreground", children: "Generate engaging lesson plans for Grade 1 students in seconds" })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: "bg-white rounded-3xl p-8 shadow-lg border border-border mb-8", children: [
-        /* @__PURE__ */ jsxs("div", { className: "mb-6", children: [
-          /* @__PURE__ */ jsx("label", { htmlFor: "topic", className: "block mb-3 text-foreground", children: "What topic would you like to teach?" }),
-          /* @__PURE__ */ jsx(
-            "input",
-            {
-              id: "topic",
-              type: "text",
-              placeholder: "e.g., Letter A, Numbers 1-10, Colors, Shapes...",
-              value: topic,
-              onChange: (e) => setTopic(e.target.value),
-              className: "w-full px-6 py-5 bg-input-background border-2 border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-[1.125rem]",
-              onKeyPress: (e) => e.key === "Enter" && handleGenerate()
-            }
-          )
-        ] }),
-        /* @__PURE__ */ jsx(
-          "button",
-          {
-            onClick: handleGenerate,
-            disabled: !topic.trim() || isGenerating,
-            className: "w-full md:w-auto bg-gradient-to-r from-[#8B5CF6] to-primary text-white px-8 py-5 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed",
-            children: isGenerating ? /* @__PURE__ */ jsxs(Fragment, { children: [
-              /* @__PURE__ */ jsx(
-                motion.div,
-                {
-                  animate: { rotate: 360 },
-                  transition: { duration: 1, repeat: Infinity, ease: "linear" },
-                  children: /* @__PURE__ */ jsx(Wand2, { className: "w-6 h-6" })
-                }
-              ),
-              "Generating Lesson..."
-            ] }) : /* @__PURE__ */ jsxs(Fragment, { children: [
-              /* @__PURE__ */ jsx(Sparkles, { className: "w-6 h-6" }),
-              "Generate Lesson Plan"
-            ] })
-          }
-        )
-      ] }),
-      !lessonPlan && /* @__PURE__ */ jsxs("div", { className: "bg-white rounded-3xl p-8 shadow-lg border border-border", children: [
-        /* @__PURE__ */ jsxs("h3", { className: "mb-6 flex items-center gap-2", children: [
-          /* @__PURE__ */ jsx(BookOpen, { className: "w-6 h-6 text-primary" }),
-          "Popular Topics"
-        ] }),
-        /* @__PURE__ */ jsx("div", { className: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4", children: [
-          { topic: "Letter A", icon: "\u{1F170}\uFE0F" },
-          { topic: "Numbers 1-10", icon: "\u{1F522}" },
-          { topic: "Colors", icon: "\u{1F3A8}" },
-          { topic: "Shapes", icon: "\u{1F537}" },
-          { topic: "Animals", icon: "\u{1F981}" },
-          { topic: "Family", icon: "\u{1F468}\u200D\u{1F469}\u200D\u{1F467}" },
-          { topic: "Weather", icon: "\u{1F326}\uFE0F" },
-          { topic: "Fruits", icon: "\u{1F34E}" }
-        ].map((item) => /* @__PURE__ */ jsxs(
-          motion.button,
-          {
-            whileHover: { scale: 1.05 },
-            whileTap: { scale: 0.95 },
-            onClick: () => setTopic(item.topic),
-            className: "p-6 rounded-2xl bg-accent hover:bg-primary hover:text-white transition-all text-center",
-            children: [
-              /* @__PURE__ */ jsx("div", { className: "text-[3rem] mb-2", children: item.icon }),
-              /* @__PURE__ */ jsx("div", { className: "text-[0.9375rem]", children: item.topic })
-            ]
-          },
-          item.topic
-        )) })
-      ] }),
-      lessonPlan && /* @__PURE__ */ jsxs(
-        motion.div,
-        {
-          initial: { opacity: 0, y: 20 },
-          animate: { opacity: 1, y: 0 },
-          className: "space-y-6",
-          children: [
-            /* @__PURE__ */ jsxs("div", { className: "bg-gradient-to-r from-[#8B5CF6] to-primary text-white rounded-3xl p-8 shadow-lg", children: [
-              /* @__PURE__ */ jsx("h3", { className: "mb-3", children: "Lesson Objective" }),
-              /* @__PURE__ */ jsx("p", { className: "text-[1.125rem] opacity-95", children: lessonPlan.objective })
-            ] }),
-            /* @__PURE__ */ jsxs("div", { className: "bg-white rounded-3xl p-8 shadow-lg border border-border", children: [
-              /* @__PURE__ */ jsxs("h3", { className: "mb-6 flex items-center gap-2", children: [
-                /* @__PURE__ */ jsx(FileText, { className: "w-6 h-6 text-primary" }),
-                "Lesson Slides (",
-                lessonPlan.slides.length,
-                ")"
-              ] }),
-              /* @__PURE__ */ jsx("div", { className: "grid md:grid-cols-2 gap-6", children: lessonPlan.slides.map((slide, index) => /* @__PURE__ */ jsxs(
-                motion.div,
-                {
-                  initial: { opacity: 0, scale: 0.9 },
-                  animate: { opacity: 1, scale: 1 },
-                  transition: { delay: index * 0.1 },
-                  className: "p-6 rounded-2xl bg-gradient-to-br from-[#E0E7FF] to-[#FEF3C7] border-2 border-primary/20",
-                  children: [
-                    /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-3 mb-4", children: [
-                      /* @__PURE__ */ jsx("div", { className: "w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-[0.875rem]", children: index + 1 }),
-                      /* @__PURE__ */ jsx("h4", { className: "flex-1", children: slide.title })
-                    ] }),
-                    /* @__PURE__ */ jsx("p", { className: "text-[0.9375rem] text-muted-foreground", children: slide.content })
-                  ]
-                },
-                index
-              )) })
-            ] }),
-            /* @__PURE__ */ jsxs("div", { className: "bg-white rounded-3xl p-8 shadow-lg border border-border", children: [
-              /* @__PURE__ */ jsxs("h3", { className: "mb-6 flex items-center gap-2", children: [
-                /* @__PURE__ */ jsx(Sparkles, { className: "w-6 h-6 text-[#F59E0B]" }),
-                "Suggested Exercises"
-              ] }),
-              /* @__PURE__ */ jsx("div", { className: "space-y-4", children: lessonPlan.exercises.map((exercise, index) => /* @__PURE__ */ jsxs(
-                motion.div,
-                {
-                  initial: { opacity: 0, x: -20 },
-                  animate: { opacity: 1, x: 0 },
-                  transition: { delay: 0.5 + index * 0.1 },
-                  className: "flex items-start gap-4 p-6 rounded-2xl bg-accent hover:bg-primary/5 transition-all",
-                  children: [
-                    /* @__PURE__ */ jsxs("div", { className: "p-3 bg-white rounded-2xl shadow-md", children: [
-                      exercise.type === "Drawing" && /* @__PURE__ */ jsx("span", { className: "text-[2rem]", children: "\u270F\uFE0F" }),
-                      exercise.type === "Matching" && /* @__PURE__ */ jsx("span", { className: "text-[2rem]", children: "\u{1F517}" }),
-                      exercise.type === "Quiz" && /* @__PURE__ */ jsx("span", { className: "text-[2rem]", children: "\u2753" })
-                    ] }),
-                    /* @__PURE__ */ jsxs("div", { className: "flex-1", children: [
-                      /* @__PURE__ */ jsxs("h4", { className: "mb-2", children: [
-                        exercise.type,
-                        " Activity"
-                      ] }),
-                      /* @__PURE__ */ jsx("p", { className: "text-[0.9375rem] text-muted-foreground", children: exercise.question })
-                    ] })
-                  ]
-                },
-                index
-              )) })
-            ] }),
-            /* @__PURE__ */ jsxs("div", { className: "flex gap-4", children: [
-              /* @__PURE__ */ jsx("button", { className: "flex-1 bg-primary text-white px-6 py-5 rounded-2xl shadow-lg hover:shadow-xl transition-all", children: "Export as PDF" }),
-              /* @__PURE__ */ jsx("button", { className: "flex-1 bg-secondary text-white px-6 py-5 rounded-2xl shadow-lg hover:shadow-xl transition-all", children: "Share with Parents" }),
-              /* @__PURE__ */ jsx(
-                "button",
-                {
-                  onClick: () => {
-                    setLessonPlan(null);
-                    setTopic("");
-                  },
-                  className: "bg-muted text-foreground px-6 py-5 rounded-2xl hover:bg-muted/70 transition-all",
-                  children: "Generate New"
-                }
-              )
-            ] })
-          ]
-        }
-      )
-    ] }) })
-  ] });
+import { useCallback, useRef, useState } from 'react'
+import { Sidebar } from '../components/Sidebar.jsx'
+import {
+  Sparkles,
+  Wand2,
+  BookOpen,
+  ClipboardList,
+  Copy,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle2,
+} from 'lucide-react'
+import { motion } from 'framer-motion'
+import { generateLessonPlan } from '../services/aiLessonService.js'
+
+const QUICK_TOPICS = [
+  { topic: 'Letter A', icon: '🅰️' },
+  { topic: 'Numbers 1-10', icon: '🔢' },
+  { topic: 'Colors', icon: '🎨' },
+  { topic: 'Shapes', icon: '🔷' },
+  { topic: 'Animals', icon: '🦁' },
+  { topic: 'Family', icon: '👨‍👩‍👧' },
+  { topic: 'Weather', icon: '🌤️' },
+  { topic: 'Fruits', icon: '🍎' },
+]
+
+function stripMeta(lesson) {
+  if (!lesson || typeof lesson !== 'object') return lesson
+  const { _meta, ...rest } = lesson
+  return rest
 }
-export {
-  AILessonGenerator
-};
+
+function formatLessonForCopy(lesson) {
+  const L = stripMeta(lesson)
+  const lines = [
+    L.title || 'Lesson plan',
+    '',
+    `Objective: ${L.objective || ''}`,
+    '',
+    'Materials:',
+    ...(Array.isArray(L.materials) ? L.materials.map((m) => `• ${m}`) : []),
+    '',
+    `Warmup: ${L.warmup || ''}`,
+    '',
+    'Activities:',
+  ]
+  if (Array.isArray(L.activities)) {
+    L.activities.forEach((a, i) => {
+      lines.push(`${i + 1}. ${a.name || 'Activity'}`)
+      lines.push(`   ${a.description || ''}`)
+      lines.push('')
+    })
+  }
+  lines.push(`Assessment: ${L.assessment || ''}`)
+  lines.push('')
+  lines.push(`Homework: ${L.homework || ''}`)
+  return lines.join('\n')
+}
+
+export function AILessonGenerator() {
+  const [topic, setTopic] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [lessonPlan, setLessonPlan] = useState(null)
+  const [copyDone, setCopyDone] = useState(false)
+
+  /** Simple session cache: topic (lowercase) → last successful lesson */
+  const cacheRef = useRef(new Map())
+
+  const runGenerate = useCallback(
+    async (opts = {}) => {
+      const { skipCache = false } = opts
+      const t = topic.trim()
+      if (!t) return
+
+      setError('')
+      setCopyDone(false)
+
+      const key = t.toLowerCase()
+      if (!skipCache && cacheRef.current.has(key)) {
+        setLessonPlan(cacheRef.current.get(key))
+        return
+      }
+
+      setLoading(true)
+      try {
+        const data = await generateLessonPlan(t)
+        cacheRef.current.set(key, data)
+        setLessonPlan(data)
+      } catch (e) {
+        const msg =
+          e?.response?.data?.error ||
+          e?.message ||
+          'Could not generate lesson plan.'
+        setError(msg)
+        setLessonPlan(null)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [topic],
+  )
+
+  async function handleCopy() {
+    if (!lessonPlan) return
+    const text = formatLessonForCopy(lessonPlan)
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopyDone(true)
+      setTimeout(() => setCopyDone(false), 2000)
+    } catch {
+      setError('Clipboard access failed. Copy manually from the sections below.')
+    }
+  }
+
+  function handleTryAgain() {
+    const t = topic.trim()
+    if (t) cacheRef.current.delete(t.toLowerCase())
+    runGenerate({ skipCache: true })
+  }
+
+  const display = lessonPlan ? stripMeta(lessonPlan) : null
+  const usedFallback = lessonPlan?._meta?.usedFallback
+
+  return (
+    <div className="flex h-screen bg-background">
+      <Sidebar />
+      <div className="flex-1 overflow-auto">
+        <div className="p-8 max-w-4xl mx-auto">
+          <div className="mb-8">
+            <h1 className="mb-2 flex items-center gap-3 text-2xl md:text-3xl font-bold">
+              <Sparkles className="w-9 h-9 text-[#8B5CF6]" />
+              AI Lesson Generator
+            </h1>
+            <p className="text-[1.05rem] text-muted-foreground">
+              Generate structured Grade 1 lesson plans using OpenRouter.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-3xl p-8 shadow-lg border border-border mb-8">
+            <label htmlFor="topic" className="block mb-3 font-medium text-foreground">
+              What topic would you like to teach?
+            </label>
+            <input
+              id="topic"
+              type="text"
+              placeholder="e.g., Numbers 1-10, Colors, Shapes…"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              disabled={loading}
+              className="w-full px-6 py-4 bg-background border-2 border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-[1.05rem] disabled:opacity-60"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && topic.trim() && !loading) {
+                  e.preventDefault()
+                  runGenerate()
+                }
+              }}
+            />
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => runGenerate()}
+                disabled={!topic.trim() || loading}
+                className="flex-1 min-w-[200px] bg-gradient-to-r from-[#8B5CF6] to-primary text-white px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <motion.span
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                      className="inline-flex"
+                    >
+                      <Wand2 className="w-6 h-6" />
+                    </motion.span>
+                    Generating…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-6 h-6" />
+                    Generate lesson plan
+                  </>
+                )}
+              </button>
+              {lessonPlan && !loading ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleTryAgain}
+                    disabled={loading}
+                    className="inline-flex items-center gap-2 px-6 py-4 rounded-2xl border-2 border-border hover:bg-muted transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                    Try again
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="inline-flex items-center gap-2 px-6 py-4 rounded-2xl border-2 border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+                  >
+                    {copyDone ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    ) : (
+                      <Copy className="w-5 h-5" />
+                    )}
+                    {copyDone ? 'Copied!' : 'Copy lesson plan'}
+                  </button>
+                </>
+              ) : null}
+            </div>
+
+            {error ? (
+              <div
+                className="mt-6 flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-destructive text-sm"
+                role="alert"
+              >
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium">Something went wrong</p>
+                  <p className="mt-1 opacity-90">{error}</p>
+                  {topic.trim() ? (
+                    <button
+                      type="button"
+                      onClick={handleTryAgain}
+                      className="mt-3 text-sm underline font-medium"
+                    >
+                      Try again
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {!lessonPlan ? (
+            <div className="bg-white rounded-3xl p-8 shadow-lg border border-border">
+              <h3 className="mb-4 flex items-center gap-2 font-semibold text-lg">
+                <BookOpen className="w-6 h-6 text-primary" />
+                Quick topics
+              </h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Click to fill the topic field, then press Generate.
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {QUICK_TOPICS.map((item) => (
+                  <motion.button
+                    key={item.topic}
+                    type="button"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setTopic(item.topic)}
+                    disabled={loading}
+                    className="p-5 rounded-2xl bg-accent hover:bg-primary hover:text-white transition-all text-center disabled:opacity-50"
+                  >
+                    <div className="text-[2.5rem] mb-2">{item.icon}</div>
+                    <div className="text-[0.9rem] font-medium">{item.topic}</div>
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {display ? (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6 mt-8"
+            >
+              {usedFallback ? (
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2">
+                  The model returned non-JSON text; a safe template was merged in. Try
+                  &quot;Try again&quot; for a fresh completion.
+                </p>
+              ) : null}
+
+              <div className="bg-gradient-to-r from-[#8B5CF6] to-primary text-white rounded-3xl p-8 shadow-lg">
+                <h2 className="text-sm uppercase tracking-wide opacity-90 mb-2">Title</h2>
+                <h3 className="text-2xl font-bold leading-tight">{display.title}</h3>
+              </div>
+
+              <section className="bg-white rounded-3xl p-8 shadow-lg border border-border">
+                <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5 text-primary" />
+                  Objective
+                </h3>
+                <p className="text-muted-foreground leading-relaxed">{display.objective}</p>
+              </section>
+
+              <section className="bg-white rounded-3xl p-8 shadow-lg border border-border">
+                <h3 className="font-semibold text-lg mb-4">Materials</h3>
+                <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+                  {(display.materials || []).map((m, i) => (
+                    <li key={i}>{m}</li>
+                  ))}
+                </ul>
+              </section>
+
+              <section className="bg-white rounded-3xl p-8 shadow-lg border border-border">
+                <h3 className="font-semibold text-lg mb-3">Warmup</h3>
+                <p className="text-muted-foreground leading-relaxed">{display.warmup}</p>
+              </section>
+
+              <section className="bg-white rounded-3xl p-8 shadow-lg border border-border">
+                <h3 className="font-semibold text-lg mb-6">Activities</h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {(display.activities || []).map((act, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.06 }}
+                      className="p-6 rounded-2xl bg-gradient-to-br from-[#E0E7FF]/80 to-[#FEF3C7]/80 border border-primary/15"
+                    >
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="w-8 h-8 rounded-full bg-primary text-white text-sm flex items-center justify-center font-semibold">
+                          {index + 1}
+                        </span>
+                        <h4 className="font-semibold">{act.name}</h4>
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {act.description}
+                      </p>
+                    </motion.div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="bg-white rounded-3xl p-8 shadow-lg border border-border">
+                <h3 className="font-semibold text-lg mb-3">Assessment</h3>
+                <p className="text-muted-foreground leading-relaxed">{display.assessment}</p>
+              </section>
+
+              <section className="bg-white rounded-3xl p-8 shadow-lg border border-border">
+                <h3 className="font-semibold text-lg mb-3">Homework</h3>
+                <p className="text-muted-foreground leading-relaxed">{display.homework}</p>
+              </section>
+
+              <div className="flex flex-wrap gap-3 pb-8">
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-white shadow-md hover:opacity-95"
+                >
+                  <Copy className="w-5 h-5" />
+                  Copy lesson plan
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTryAgain}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl border-2 border-border hover:bg-muted disabled:opacity-50"
+                >
+                  <RefreshCw className="w-5 h-5" />
+                  Regenerate
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLessonPlan(null)
+                    setError('')
+                    setCopyDone(false)
+                  }}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-muted hover:bg-muted/80"
+                >
+                  New topic
+                </button>
+              </div>
+            </motion.div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}

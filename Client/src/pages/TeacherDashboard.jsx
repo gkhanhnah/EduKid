@@ -1,179 +1,329 @@
-import { jsx, jsxs } from "react/jsx-runtime";
-import { Sidebar } from "../components/Sidebar.jsx";
-import { Users, TrendingUp, Heart, Star, Calendar, Clock } from "lucide-react";
-import { students } from "../data/mockData.js";
-import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
-function TeacherDashboard() {
-  const presentStudents = students.filter((s) => s.status === "present").length;
-  const totalStudents = students.length;
-  const quickActions = [
-    { label: "Take Attendance", icon: "\u2713", color: "bg-secondary", path: "/students" },
-    { label: "Track Behavior", icon: "\u{1F44D}", color: "bg-primary", path: "/behavior" },
-    { label: "Start Game", icon: "\u{1F3AE}", color: "bg-[#F59E0B]", path: "/games" },
-    { label: "Generate Lesson", icon: "\u2728", color: "bg-[#8B5CF6]", path: "/ai-lesson" }
-  ];
-  return /* @__PURE__ */ jsxs("div", { className: "flex h-screen bg-background", children: [
-    /* @__PURE__ */ jsx(Sidebar, {}),
-    /* @__PURE__ */ jsx("div", { className: "flex-1 overflow-auto", children: /* @__PURE__ */ jsxs("div", { className: "p-8", children: [
-      /* @__PURE__ */ jsxs("div", { className: "mb-8", children: [
-        /* @__PURE__ */ jsx("h1", { className: "mb-2", children: "Good Morning, Mrs. Anderson! \u{1F44B}" }),
-        /* @__PURE__ */ jsx("p", { className: "text-[1.125rem] text-muted-foreground", children: "Here's what's happening in your classroom today" })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: "grid grid-cols-1 md:grid-cols-4 gap-6 mb-8", children: [
-        /* @__PURE__ */ jsxs(
-          motion.div,
-          {
-            initial: { opacity: 0, y: 20 },
-            animate: { opacity: 1, y: 0 },
-            className: "bg-white rounded-3xl p-6 shadow-lg border border-border",
-            children: [
-              /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between mb-4", children: [
-                /* @__PURE__ */ jsx("div", { className: "p-3 bg-primary/10 rounded-2xl", children: /* @__PURE__ */ jsx(Users, { className: "w-6 h-6 text-primary" }) }),
-                /* @__PURE__ */ jsx("span", { className: "text-[0.875rem] text-secondary", children: "+2 today" })
-              ] }),
-              /* @__PURE__ */ jsxs("h3", { className: "text-[2rem] mb-1", children: [
-                presentStudents,
-                "/",
-                totalStudents
-              ] }),
-              /* @__PURE__ */ jsx("p", { className: "text-[0.9375rem] text-muted-foreground", children: "Students Present" })
-            ]
-          }
-        ),
-        /* @__PURE__ */ jsxs(
-          motion.div,
-          {
-            initial: { opacity: 0, y: 20 },
-            animate: { opacity: 1, y: 0 },
-            transition: { delay: 0.1 },
-            className: "bg-white rounded-3xl p-6 shadow-lg border border-border",
-            children: [
-              /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between mb-4", children: [
-                /* @__PURE__ */ jsx("div", { className: "p-3 bg-secondary/10 rounded-2xl", children: /* @__PURE__ */ jsx(TrendingUp, { className: "w-6 h-6 text-secondary" }) }),
-                /* @__PURE__ */ jsx("span", { className: "text-[0.875rem] text-secondary", children: "+15%" })
-              ] }),
-              /* @__PURE__ */ jsx("h3", { className: "text-[2rem] mb-1", children: "87%" }),
-              /* @__PURE__ */ jsx("p", { className: "text-[0.9375rem] text-muted-foreground", children: "Good Behavior" })
-            ]
-          }
-        ),
-        /* @__PURE__ */ jsxs(
-          motion.div,
-          {
-            initial: { opacity: 0, y: 20 },
-            animate: { opacity: 1, y: 0 },
-            transition: { delay: 0.2 },
-            className: "bg-white rounded-3xl p-6 shadow-lg border border-border",
-            children: [
-              /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between mb-4", children: [
-                /* @__PURE__ */ jsx("div", { className: "p-3 bg-[#F59E0B]/10 rounded-2xl", children: /* @__PURE__ */ jsx(Star, { className: "w-6 h-6 text-[#F59E0B]" }) }),
-                /* @__PURE__ */ jsx("span", { className: "text-[0.875rem] text-secondary", children: "Top!" })
-              ] }),
-              /* @__PURE__ */ jsx("h3", { className: "text-[2rem] mb-1", children: "24" }),
-              /* @__PURE__ */ jsx("p", { className: "text-[0.9375rem] text-muted-foreground", children: "Active Students" })
-            ]
-          }
-        ),
-        /* @__PURE__ */ jsxs(
-          motion.div,
-          {
-            initial: { opacity: 0, y: 20 },
-            animate: { opacity: 1, y: 0 },
-            transition: { delay: 0.3 },
-            className: "bg-white rounded-3xl p-6 shadow-lg border border-border",
-            children: [
-              /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between mb-4", children: [
-                /* @__PURE__ */ jsx("div", { className: "p-3 bg-[#EF4444]/10 rounded-2xl", children: /* @__PURE__ */ jsx(Heart, { className: "w-6 h-6 text-[#EF4444]" }) }),
-                /* @__PURE__ */ jsx("span", { className: "text-[0.875rem] text-muted-foreground", children: "This week" })
-              ] }),
-              /* @__PURE__ */ jsx("h3", { className: "text-[2rem] mb-1", children: "3" }),
-              /* @__PURE__ */ jsx("p", { className: "text-[0.9375rem] text-muted-foreground", children: "New Messages" })
-            ]
-          }
-        )
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: "mb-8", children: [
-        /* @__PURE__ */ jsx("h2", { className: "mb-6", children: "Quick Actions" }),
-        /* @__PURE__ */ jsx("div", { className: "grid grid-cols-2 md:grid-cols-4 gap-4", children: quickActions.map((action, index) => /* @__PURE__ */ jsx(Link, { to: action.path, children: /* @__PURE__ */ jsxs(
-          motion.div,
-          {
-            initial: { opacity: 0, scale: 0.9 },
-            animate: { opacity: 1, scale: 1 },
-            transition: { delay: 0.4 + index * 0.1 },
-            whileHover: { scale: 1.05 },
-            whileTap: { scale: 0.95 },
-            className: `${action.color} text-white rounded-3xl p-6 cursor-pointer shadow-lg hover:shadow-xl transition-all`,
-            children: [
-              /* @__PURE__ */ jsx("div", { className: "text-[3rem] mb-3", children: action.icon }),
-              /* @__PURE__ */ jsx("p", { className: "text-[1rem]", children: action.label })
-            ]
-          }
-        ) }, action.label)) })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: "grid md:grid-cols-2 gap-6", children: [
-        /* @__PURE__ */ jsxs(
-          motion.div,
-          {
-            initial: { opacity: 0, x: -20 },
-            animate: { opacity: 1, x: 0 },
-            transition: { delay: 0.6 },
-            className: "bg-white rounded-3xl p-6 shadow-lg border border-border",
-            children: [
-              /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-3 mb-6", children: [
-                /* @__PURE__ */ jsx(Calendar, { className: "w-6 h-6 text-primary" }),
-                /* @__PURE__ */ jsx("h3", { children: "Today's Schedule" })
-              ] }),
-              /* @__PURE__ */ jsx("div", { className: "space-y-4", children: [
-                { time: "9:00 AM", activity: "Morning Circle", icon: "\u{1F305}" },
-                { time: "10:00 AM", activity: "Alphabet Learning", icon: "\u{1F524}" },
-                { time: "11:00 AM", activity: "Number Games", icon: "\u{1F522}" },
-                { time: "12:00 PM", activity: "Lunch Break", icon: "\u{1F34E}" },
-                { time: "1:00 PM", activity: "Story Time", icon: "\u{1F4DA}" },
-                { time: "2:00 PM", activity: "Art & Crafts", icon: "\u{1F3A8}" }
-              ].map((item) => /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-4 p-3 rounded-2xl hover:bg-accent transition-all", children: [
-                /* @__PURE__ */ jsx("div", { className: "text-[2rem]", children: item.icon }),
-                /* @__PURE__ */ jsxs("div", { className: "flex-1", children: [
-                  /* @__PURE__ */ jsx("p", { className: "text-[0.9375rem]", children: item.activity }),
-                  /* @__PURE__ */ jsxs("p", { className: "text-[0.875rem] text-muted-foreground flex items-center gap-1", children: [
-                    /* @__PURE__ */ jsx(Clock, { className: "w-3 h-3" }),
-                    item.time
-                  ] })
-                ] })
-              ] }, item.time)) })
-            ]
-          }
-        ),
-        /* @__PURE__ */ jsxs(
-          motion.div,
-          {
-            initial: { opacity: 0, x: 20 },
-            animate: { opacity: 1, x: 0 },
-            transition: { delay: 0.7 },
-            className: "bg-white rounded-3xl p-6 shadow-lg border border-border",
-            children: [
-              /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-3 mb-6", children: [
-                /* @__PURE__ */ jsx(Star, { className: "w-6 h-6 text-[#F59E0B]" }),
-                /* @__PURE__ */ jsx("h3", { children: "Top Performers This Week" })
-              ] }),
-              /* @__PURE__ */ jsx("div", { className: "space-y-4", children: students.slice(0, 6).map((student, index) => /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-4 p-3 rounded-2xl hover:bg-accent transition-all", children: [
-                /* @__PURE__ */ jsx("div", { className: "w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-[1.5rem]", children: student.avatar }),
-                /* @__PURE__ */ jsxs("div", { className: "flex-1", children: [
-                  /* @__PURE__ */ jsx("p", { className: "text-[0.9375rem]", children: student.name }),
-                  /* @__PURE__ */ jsx("div", { className: "flex gap-1 mt-1", children: [...Array(5)].map((_, i) => /* @__PURE__ */ jsx(Star, { className: "w-3 h-3 fill-[#F59E0B] text-[#F59E0B]" }, i)) })
-                ] }),
-                /* @__PURE__ */ jsxs("div", { className: "w-8 h-8 rounded-full bg-[#F59E0B] text-white flex items-center justify-center text-[0.875rem]", children: [
-                  "#",
-                  index + 1
-                ] })
-              ] }, student.id)) })
-            ]
-          }
-        )
-      ] })
-    ] }) })
-  ] });
+import { useCallback, useEffect, useState } from 'react'
+import { Link, Navigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import {
+  Activity,
+  BookOpen,
+  Calendar,
+  Clock,
+  GraduationCap,
+  School,
+  Star,
+  Users,
+} from 'lucide-react'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+import { Sidebar } from '../components/Sidebar.jsx'
+import { useAuth } from '../hooks/useAuth.js'
+import { fetchTeacherDashboard } from '../services/dashboardService.js'
+
+const CHART_COLORS = {
+  good: '#22c55e',
+  bad: '#ef4444',
+  active: '#6366f1',
+  sleepy: '#f59e0b',
 }
-export {
-  TeacherDashboard
-};
+
+export function TeacherDashboard() {
+  const { user } = useAuth()
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const d = await fetchTeacherDashboard()
+      setData(d)
+    } catch (e) {
+      setError(e?.response?.data?.error || e?.message || 'Could not load dashboard')
+      setData(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const stats = data?.behaviorStats
+  const chartData =
+    stats != null
+      ? [
+          { name: 'Good', value: stats.GOOD ?? 0, fill: CHART_COLORS.good },
+          { name: 'Bad', value: stats.BAD ?? 0, fill: CHART_COLORS.bad },
+          { name: 'Active', value: stats.ACTIVE ?? stats.NOTE ?? 0, fill: CHART_COLORS.active },
+          { name: 'Sleepy', value: stats.SLEEPY ?? 0, fill: CHART_COLORS.sleepy },
+        ]
+      : []
+
+  const quickActions = [
+    { label: 'Students', icon: '👥', color: 'bg-primary', path: '/students' },
+    { label: 'Classes', icon: '🏫', color: 'bg-secondary', path: '/classes' },
+    { label: 'Behavior', icon: '👍', color: 'bg-[#F59E0B]', path: '/behavior' },
+    { label: 'Evaluations', icon: '📋', color: 'bg-[#8B5CF6]', path: '/evaluations' },
+  ]
+
+  const greetingName = user?.name?.split(' ')[0] || 'Teacher'
+
+  if (user?.role && user.role !== 'teacher') {
+    return <Navigate to="/parent-dashboard" replace />
+  }
+
+  return (
+    <div className="flex h-screen bg-background">
+      <Sidebar />
+      <div className="flex-1 overflow-auto">
+        <div className="p-6 md:p-8 max-w-6xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">
+              Good morning, {greetingName}
+            </h1>
+            <p className="text-muted-foreground text-[1.05rem]">
+              Overview of your classes, students, and recent behavior activity.
+            </p>
+          </div>
+
+          {loading ? (
+            <div className="rounded-3xl border border-border bg-white p-12 text-center text-muted-foreground shadow-lg">
+              Loading dashboard…
+            </div>
+          ) : error ? (
+            <div className="rounded-3xl border border-destructive/30 bg-destructive/5 p-6 text-destructive flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={load}
+                className="text-sm underline shrink-0"
+              >
+                Try again
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-white rounded-3xl p-6 shadow-lg border border-border"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-3 bg-primary/10 rounded-2xl">
+                      <Users className="w-6 h-6 text-primary" />
+                    </div>
+                  </div>
+                  <p className="text-3xl font-bold tabular-nums">
+                    {data?.totalStudents ?? 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">Total students</p>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.05 }}
+                  className="bg-white rounded-3xl p-6 shadow-lg border border-border"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-3 bg-secondary/10 rounded-2xl">
+                      <School className="w-6 h-6 text-secondary" />
+                    </div>
+                  </div>
+                  <p className="text-3xl font-bold tabular-nums">
+                    {data?.totalClasses ?? 0}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">Classes</p>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="bg-white rounded-3xl p-6 shadow-lg border border-border sm:col-span-2 lg:col-span-2"
+                >
+                  <div className="flex items-center gap-2 mb-4">
+                    <Activity className="w-5 h-5 text-primary" />
+                    <span className="font-semibold">Behavior totals</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                    <div className="rounded-2xl bg-secondary/10 py-3">
+                      <p className="text-2xl font-bold text-secondary tabular-nums">
+                        {stats?.GOOD ?? 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">GOOD</p>
+                    </div>
+                    <div className="rounded-2xl bg-destructive/10 py-3">
+                      <p className="text-2xl font-bold text-destructive tabular-nums">
+                        {stats?.BAD ?? 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">BAD</p>
+                    </div>
+                    <div className="rounded-2xl bg-primary/10 py-3">
+                      <p className="text-2xl font-bold text-primary tabular-nums">
+                        {stats?.ACTIVE ?? stats?.NOTE ?? 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">ACTIVE</p>
+                    </div>
+                    <div className="rounded-2xl bg-[#F59E0B]/10 py-3">
+                      <p className="text-2xl font-bold text-[#F59E0B] tabular-nums">
+                        {stats?.SLEEPY ?? 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">SLEEPY</p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6 mb-8">
+                <motion.div
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.15 }}
+                  className="bg-white rounded-3xl p-6 shadow-lg border border-border min-h-[280px]"
+                >
+                  <div className="flex items-center gap-2 mb-4">
+                    <GraduationCap className="w-5 h-5 text-primary" />
+                    <h2 className="font-semibold">Behavior distribution</h2>
+                  </div>
+                  {chartData.every((d) => d.value === 0) ? (
+                    <p className="text-sm text-muted-foreground py-12 text-center">
+                      No behavior records yet. Start tracking from Behavior Tracking.
+                    </p>
+                  ) : (
+                    <div className="h-56 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                          <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={32} />
+                          <Tooltip
+                            contentStyle={{
+                              borderRadius: 12,
+                              border: '1px solid var(--border, #e5e7eb)',
+                            }}
+                          />
+                          <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                            {chartData.map((entry, i) => (
+                              <Cell key={i} fill={entry.fill} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="bg-white rounded-3xl p-6 shadow-lg border border-border"
+                >
+                  <div className="flex items-center gap-2 mb-4">
+                    <Clock className="w-5 h-5 text-primary" />
+                    <h2 className="font-semibold">Recent behaviors</h2>
+                  </div>
+                  {!data?.recentBehaviors?.length ? (
+                    <p className="text-sm text-muted-foreground">No recent entries.</p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {data.recentBehaviors.map((b) => {
+                        const when = b.createdAt
+                          ? new Date(b.createdAt).toLocaleString(undefined, {
+                              dateStyle: 'short',
+                              timeStyle: 'short',
+                            })
+                          : '—'
+                        const typeLabel = b.behaviorType ?? b.type ?? '—'
+                        const noteText = (b.note ?? b.description ?? '').trim()
+                        return (
+                          <li
+                            key={b._id}
+                            className="rounded-2xl border border-border/80 bg-muted/30 px-4 py-3 text-sm"
+                          >
+                            <div className="flex justify-between gap-2 flex-wrap">
+                              <span className="font-medium text-primary">
+                                {typeLabel}
+                              </span>
+                              <span className="text-xs text-muted-foreground">{when}</span>
+                            </div>
+                            <p className="text-muted-foreground mt-1">
+                              {b.student?.name ?? 'Student'}
+                            </p>
+                            {noteText ? (
+                              <p className="mt-1 text-foreground">{noteText}</p>
+                            ) : null}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </motion.div>
+              </div>
+
+              <div className="mb-8">
+                <h2 className="text-lg font-semibold mb-4">Quick actions</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {quickActions.map((action, index) => (
+                    <Link key={action.path} to={action.path}>
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.25 + index * 0.05 }}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className={`${action.color} text-white rounded-3xl p-6 cursor-pointer shadow-lg hover:shadow-xl transition-shadow min-h-[120px] flex flex-col justify-end`}
+                      >
+                        <div className="text-3xl mb-2">{action.icon}</div>
+                        <p className="font-medium">{action.label}</p>
+                      </motion.div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35 }}
+                className="bg-white rounded-3xl p-6 shadow-lg border border-border flex flex-wrap items-center gap-4"
+              >
+                <Calendar className="w-8 h-8 text-primary shrink-0" />
+                <div>
+                  <p className="font-medium">Plan your week</p>
+                  <p className="text-sm text-muted-foreground">
+                    Use AI Lesson Generator or review behavior history for patterns.
+                  </p>
+                </div>
+                <div className="ml-auto flex flex-wrap gap-2">
+                  <Link
+                    to="/ai-lesson"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-primary text-primary-foreground px-4 py-2 text-sm font-medium"
+                  >
+                    <Star className="w-4 h-4" />
+                    AI lesson
+                  </Link>
+                  <Link
+                    to="/behavior-history"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-border px-4 py-2 text-sm font-medium"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    History
+                  </Link>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

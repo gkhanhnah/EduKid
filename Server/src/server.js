@@ -1,12 +1,35 @@
-import 'dotenv/config'
+import './loadEnv.js'
+import { createServer } from 'http'
+import { Server } from 'socket.io'
 import app from './app.js'
 import { connectDb } from './config/db.js'
+import { createSocketAuthMiddleware } from './socket/socketAuth.js'
+import { registerChatHandlers } from './socket/chat.handlers.js'
+import { registerGroupChatHandlers } from './socket/groupChat.handlers.js'
 
 const port = Number(process.env.PORT) || 3000
 
+function parseOrigins() {
+  const raw = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
+  return raw.split(',').map((s) => s.trim()).filter(Boolean)
+}
+
 try {
   await connectDb()
-  app.listen(port, () => {
+
+  const httpServer = createServer(app)
+  const io = new Server(httpServer, {
+    cors: {
+      origin: parseOrigins(),
+      methods: ['GET', 'POST'],
+    },
+  })
+
+  io.use(createSocketAuthMiddleware())
+  registerChatHandlers(io)
+  registerGroupChatHandlers(io)
+
+  httpServer.listen(port, () => {
     console.log(`Server listening on port ${port}`)
   })
 } catch (err) {

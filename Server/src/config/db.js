@@ -5,5 +5,7 @@ export async function connectDb() {
   if (!uri) {
     throw new Error('MONGO_URI is not set')
   }
-  await mongoose.connect(uri)
+  await mongoose.connect(uri, {
+    serverSelectionTimeoutMS: 15_000,
+  })
 }

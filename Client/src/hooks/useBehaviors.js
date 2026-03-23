@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
-import { getBehaviors } from "../services/api.js";
+import { useCallback, useEffect, useState } from 'react'
+import { getBehaviors } from '../services/api.js'
 
-export function useBehaviors() {
+export function useBehaviors(options = {}) {
+  const { studentId, type, date, classId } = options
   const [behaviors, setBehaviors] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -10,15 +11,22 @@ export function useBehaviors() {
     setLoading(true)
     setError(null)
     try {
-      const data = await getBehaviors()
+      const params = {}
+      if (studentId) params.studentId = studentId
+      if (classId) params.classId = classId
+      if (type && type !== 'all') params.type = String(type).toUpperCase()
+      if (date) params.date = date
+      const data = await getBehaviors(params)
       setBehaviors(Array.isArray(data) ? data : [])
     } catch (e) {
-      setError(e.message || 'Failed to load behaviors')
+      const msg =
+        e?.response?.data?.error || e?.message || 'Failed to load behaviors'
+      setError(msg)
       setBehaviors([])
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [studentId, type, date, classId])
 
   useEffect(() => {
     refresh()

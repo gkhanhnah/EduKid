@@ -1,9 +1,17 @@
 import { Router } from 'express'
-import { createBehavior, getBehaviors } from '../controllers/behavior.controller.js'
+import { verifyToken, authorizeRole } from '../middleware/auth.middleware.js'
+import {
+  createBehavior,
+  getBehaviors,
+  getBehaviorStats,
+} from '../controllers/behavior.controller.js'
 
 const router = Router()
 
-router.post('/', createBehavior)
+router.use(verifyToken)
+
+router.get('/stats', getBehaviorStats)
 router.get('/', getBehaviors)
+router.post('/', authorizeRole('teacher'), createBehavior)
 
 export default router
