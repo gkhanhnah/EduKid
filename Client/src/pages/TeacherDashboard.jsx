@@ -81,10 +81,10 @@ export function TeacherDashboard() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
       <div className="flex-1 overflow-auto">
-        <div className="p-6 md:p-8 max-w-6xl mx-auto">
+        <div className="p-4 md:p-8 max-w-6xl mx-auto">
           <div className="mb-8">
             <h1 className="text-2xl md:text-3xl font-bold mb-2">
               Good morning, {greetingName}

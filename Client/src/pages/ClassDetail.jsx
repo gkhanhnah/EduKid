@@ -14,6 +14,7 @@ import {
   Users,
   Mail,
   GraduationCap,
+  ClipboardCheck,
 } from 'lucide-react'
 
 export function ClassDetail() {
@@ -119,9 +120,9 @@ export function ClassDetail() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
-      <div className="flex-1 overflow-auto p-8">
+      <div className="flex-1 overflow-auto p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
           <Link
             to="/classes"
@@ -173,6 +174,13 @@ export function ClassDetail() {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-sm"
                   >
                     Open chat
+                  </Link>
+                  <Link
+                    to={`/classes/${id}/grades`}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm"
+                  >
+                    <ClipboardCheck className="w-4 h-4 text-primary" />
+                    Grades
                   </Link>
                   <button
                     type="button"

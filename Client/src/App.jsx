@@ -19,6 +19,8 @@ import { AILessonGenerator as AILessonGeneratorPage } from './pages/AILessonGene
 import { Messages as MessagesPage } from './pages/Messages.jsx'
 import { Login as LoginPage } from './pages/Login.jsx'
 import { Register as RegisterPage } from './pages/Register.jsx'
+import { GradeManagement as GradeManagementPage } from './pages/GradeManagement.jsx'
+import { StudentGradeView as StudentGradeViewPage } from './pages/StudentGradeView.jsx'
 import { RedirectHome } from './components/RedirectHome.jsx'
 
 export default function App() {
@@ -36,6 +38,7 @@ export default function App() {
             <Route path="classes/:id" element={<ClassDetailPage />} />
             <Route path="classes/:classId/timetable" element={<TimetablePage />} />
             <Route path="classes/:classId/chat" element={<GroupChatPage />} />
+            <Route path="classes/:classId/grades" element={<GradeManagementPage />} />
             <Route path="parent-dashboard" element={<ParentDashboard />} />
             <Route path="parent" element={<Navigate to="/parent-dashboard" replace />} />
             <Route path="behavior" element={<BehaviorTrackingPage />} />
@@ -45,6 +48,7 @@ export default function App() {
             <Route path="ai-lesson" element={<AILessonGeneratorPage />} />
             <Route path="messages" element={<MessagesPage />} />
             <Route path="students/:id" element={<StudentDetailPage />} />
+            <Route path="students/:studentId/grades" element={<StudentGradeViewPage />} />
             <Route path="students" element={<StudentManagementPage />} />
             <Route path="evaluations" element={<EvaluationPage />} />
             <Route path="behaviors" element={<BehaviorHistoryPage />} />

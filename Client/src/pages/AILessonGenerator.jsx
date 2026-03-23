@@ -123,10 +123,10 @@ export function AILessonGenerator() {
   const usedFallback = lessonPlan?._meta?.usedFallback
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
       <div className="flex-1 overflow-auto">
-        <div className="p-8 max-w-4xl mx-auto">
+        <div className="p-4 md:p-8 max-w-4xl mx-auto">
           <div className="mb-8">
             <h1 className="mb-2 flex items-center gap-3 text-2xl md:text-3xl font-bold">
               <Sparkles className="w-9 h-9 text-[#8B5CF6]" />

@@ -56,10 +56,10 @@ export function Games() {
         : `${totalSeconds}s`
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
       <div className="flex-1 overflow-auto">
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           <div className="mb-8">
             <h1 className="mb-2">Game-Based Learning</h1>
             <p className="text-[1.125rem] text-muted-foreground">

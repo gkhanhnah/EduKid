@@ -36,7 +36,7 @@ export function Sidebar() {
   const navItems = user?.role === 'parent' ? parentNavItems : teacherNavItems
 
   return (
-    <div className="w-64 bg-white border-r border-border h-screen flex flex-col">
+    <div className="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-border h-auto md:h-screen flex flex-col">
       <div className="p-6 border-b border-border">
         <h2 className="flex items-center gap-2">
           <span className="text-[2rem]">🎒</span>
@@ -44,7 +44,7 @@ export function Sidebar() {
         </h2>
         <p className="text-[0.875rem] text-muted-foreground mt-1">Grade 1 Management</p>
       </div>
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-2 overflow-auto">
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = location.pathname === item.path

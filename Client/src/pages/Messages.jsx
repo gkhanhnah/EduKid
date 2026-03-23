@@ -370,7 +370,7 @@ export function Messages() {
     (Boolean(messageText.trim()) || Boolean(fileDraft))
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
       <div className="flex-1 flex overflow-hidden min-w-0">
         <div className="w-96 bg-white border-r border-border flex flex-col shrink-0">
@@ -515,8 +515,8 @@ export function Messages() {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col bg-background min-w-0">
-          <div className="bg-white border-b border-border p-6">
+      <div className="flex-1 flex flex-col bg-background min-w-0">
+        <div className="bg-white border-b border-border p-4 md:p-6">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4 min-w-0">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-lg font-semibold text-white shrink-0">
@@ -554,7 +554,7 @@ export function Messages() {
 
           <div
             ref={scrollRef}
-            className="flex-1 overflow-auto p-6 space-y-4"
+            className="flex-1 overflow-auto p-4 md:p-6 space-y-4"
           >
             {chatMode === 'class' ? (
               groupHistoryLoading ? (

@@ -474,6 +474,14 @@ function ChildDashboardPanels({ student, linkItem }) {
                     View timetable
                   </Link>
                 ) : null}
+                {sid ? (
+                  <Link
+                    to={`/students/${sid}/grades`}
+                    className="ml-3 text-xs text-primary hover:underline inline-block"
+                  >
+                    View grades
+                  </Link>
+                ) : null}
               </div>
             </div>
           </div>

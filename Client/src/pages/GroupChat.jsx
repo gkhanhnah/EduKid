@@ -306,9 +306,9 @@ export function GroupChat() {
   const myIdStr = meId != null ? String(meId) : ''
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
-      <div className="flex-1 overflow-auto p-8">
+      <div className="flex-1 overflow-auto p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
           <Link
             to={backHref}
