@@ -2,7 +2,10 @@ import { ClassRoom } from '../models/Class.js'
 import { classScopeFilter } from '../utils/teacherClassScope.js'
 import { Student } from '../models/Student.js'
 import { ParentStudent } from '../models/ParentStudent.js'
-import { listMessagesBetween } from '../services/messaging.service.js'
+import {
+  listMessagesBetween,
+  listMessagesBetweenPaginated,
+} from '../services/messaging.service.js'
 
 export function uploadMessageAttachment(req, res) {
   try {
@@ -101,6 +104,24 @@ export async function getMessageHistory(req, res) {
     if (!otherId) {
       return res.status(400).json({ error: 'userId query is required' })
     }
+    const hasLimit =
+      req.query.limit !== undefined && String(req.query.limit).trim() !== ''
+
+    if (hasLimit) {
+      const result = await listMessagesBetweenPaginated(req.user.id, otherId, {
+        limit: req.query.limit,
+        before: req.query.before,
+      })
+      if (result.error) {
+        const status = result.error === 'Invalid before cursor' ? 400 : 403
+        return res.status(status).json({ error: result.error })
+      }
+      return res.json({
+        messages: result.messages,
+        hasMore: Boolean(result.hasMore),
+      })
+    }
+
     const result = await listMessagesBetween(req.user.id, otherId)
     if (result.error) {
       return res.status(403).json({ error: result.error })

@@ -13,12 +13,14 @@ const gradeSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
-  // The grade type determines the weight for weighted-average calculations.
-  type: {
+  subject: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'GradeType',
+    ref: 'Subject',
     required: true,
+    index: true,
   },
+  /** Must match subject.components[].name */
+  componentName: { type: String, required: true, trim: true },
   score: { type: Number, required: true },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -26,13 +28,10 @@ const gradeSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
-  // When true, parents are allowed to view this grade.
   showToParent: { type: Boolean, default: false, index: true },
   createdAt: { type: Date, default: Date.now },
 })
 
-// Data integrity: one grade per (student, class, grade type).
-gradeSchema.index({ student: 1, class: 1, type: 1 }, { unique: true })
+gradeSchema.index({ student: 1, class: 1, subject: 1, componentName: 1 }, { unique: true })
 
 export const Grade = mongoose.model('Grade', gradeSchema)
-

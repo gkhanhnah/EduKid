@@ -20,6 +20,15 @@ function serializeUser(u) {
   }
 }
 
+const DEFAULT_CHAT_PAGE_LIMIT = 50
+const MAX_CHAT_PAGE_LIMIT = 100
+
+function clampChatLimit(raw) {
+  const n = Number.parseInt(String(raw), 10)
+  if (!Number.isFinite(n) || n < 1) return DEFAULT_CHAT_PAGE_LIMIT
+  return Math.min(n, MAX_CHAT_PAGE_LIMIT)
+}
+
 function serializeGroupMessage(m) {
   if (!m) return m
   return {
@@ -106,11 +115,39 @@ export async function getClassChat(req, res) {
 
     const participants = await fetchParticipantsForClass(cls)
 
-    const messages = await GroupMessage.find({ class: classId })
-      .sort({ createdAt: 1 })
-      .populate('sender', 'name email role')
-      .populate('mentions', 'name email role')
-      .lean()
+    const hasLimit =
+      req.query.limit !== undefined && String(req.query.limit).trim() !== ''
+
+    let messagesPayload
+    let hasMore = false
+
+    if (hasLimit) {
+      const limit = clampChatLimit(req.query.limit)
+      const beforeRaw = req.query.before
+      let filter = { class: classId }
+      if (beforeRaw != null && String(beforeRaw).trim() !== '') {
+        const beforeDate = new Date(beforeRaw)
+        if (Number.isNaN(beforeDate.getTime())) {
+          return res.status(400).json({ error: 'Invalid before cursor' })
+        }
+        filter = { class: classId, createdAt: { $lt: beforeDate } }
+      }
+      const rows = await GroupMessage.find(filter)
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .populate('sender', 'name email role')
+        .populate('mentions', 'name email role')
+        .lean()
+      hasMore = rows.length === limit
+      messagesPayload = [...rows].reverse().map(serializeGroupMessage)
+    } else {
+      const messages = await GroupMessage.find({ class: classId })
+        .sort({ createdAt: 1 })
+        .populate('sender', 'name email role')
+        .populate('mentions', 'name email role')
+        .lean()
+      messagesPayload = messages.map(serializeGroupMessage)
+    }
 
     res.json({
       class: {
@@ -120,7 +157,8 @@ export async function getClassChat(req, res) {
       },
       viewer: { isMainTeacher: viewerIsMainTeacher },
       participants,
-      messages: messages.map(serializeGroupMessage),
+      messages: messagesPayload,
+      ...(hasLimit ? { hasMore } : {}),
     })
   } catch (err) {
     if (err?.name === 'CastError') return res.status(400).json({ error: 'Invalid classId' })

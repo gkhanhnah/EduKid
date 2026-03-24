@@ -1,14 +1,15 @@
 import { Router } from 'express'
 import { verifyToken, authorizeRole } from '../middleware/auth.middleware.js'
 import {
-  postGrade,
   putGrade,
   putGradeShow,
   getGradesForStudent,
   getGradesForClass,
-  getGradeTypesByClass,
-  postGradeType,
-  putGradeType,
+  createSubject,
+  getSubjects,
+  updateSubject,
+  addGradeToSubject,
+  getGradesBySubject,
 } from '../controllers/grade.controller.js'
 
 const router = Router()
@@ -16,39 +17,28 @@ const router = Router()
 router.use(verifyToken)
 
 // ---------------------------
-// Grade endpoints
+// Subjects (literal paths before /:id)
 // ---------------------------
 
-// Teacher: add grade (or update existing grade for same (student, class, type)).
-router.post('/', authorizeRole('teacher'), postGrade)
+router.post('/subjects', authorizeRole('teacher'), createSubject)
+router.get('/subjects', authorizeRole('teacher'), getSubjects)
+router.put('/subjects/:id', authorizeRole('teacher'), updateSubject)
+router.post('/subjects/:subjectId/grades', authorizeRole('teacher'), addGradeToSubject)
+router.get('/subjects/:subjectId/grades', authorizeRole('teacher'), getGradesBySubject)
 
-// Teacher: edit grade (score and/or showToParent).
+// ---------------------------
+// Grade rows (by grade id)
+// ---------------------------
+
 router.put('/:id', authorizeRole('teacher'), putGrade)
-
-// Teacher: make a grade visible to parents.
 router.put('/:id/show', authorizeRole('teacher'), putGradeShow)
 
-// Teacher: view all grades of student.
-// Parent: view grades only if showToParent=true.
 router.get(
   '/student/:studentId',
   authorizeRole('teacher', 'parent'),
   getGradesForStudent,
 )
 
-// Teacher: view all students + grades in a class.
 router.get('/class/:classId', authorizeRole('teacher'), getGradesForClass)
 
-// ---------------------------
-// GradeType endpoints
-// (used to edit weights)
-// ---------------------------
-
-router.get('/types/class/:classId', authorizeRole('teacher'), getGradeTypesByClass)
-
-router.post('/types', authorizeRole('teacher'), postGradeType)
-
-router.put('/types/:id', authorizeRole('teacher'), putGradeType)
-
 export default router
-

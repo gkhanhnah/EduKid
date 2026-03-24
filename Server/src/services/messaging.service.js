@@ -140,6 +140,15 @@ export function serializeMessage(m) {
   return out
 }
 
+const DEFAULT_PAGE_LIMIT = 50
+const MAX_PAGE_LIMIT = 100
+
+function clampMessageLimit(raw) {
+  const n = Number.parseInt(String(raw), 10)
+  if (!Number.isFinite(n) || n < 1) return DEFAULT_PAGE_LIMIT
+  return Math.min(n, MAX_PAGE_LIMIT)
+}
+
 export async function listMessagesBetween(meId, otherUserId) {
   const meOid = new mongoose.Types.ObjectId(meId)
   const otherOid = new mongoose.Types.ObjectId(otherUserId)
@@ -160,4 +169,48 @@ export async function listMessagesBetween(meId, otherUserId) {
     .lean()
 
   return { messages: rows.map(serializeMessage) }
+}
+
+/**
+ * Paginated history: newest-first fetch then reversed to chronological.
+ * `before` = ISO createdAt of the oldest message currently shown (load older).
+ */
+export async function listMessagesBetweenPaginated(meId, otherUserId, options = {}) {
+  const meOid = new mongoose.Types.ObjectId(meId)
+  const otherOid = new mongoose.Types.ObjectId(otherUserId)
+  const limit = clampMessageLimit(options.limit ?? DEFAULT_PAGE_LIMIT)
+  const beforeRaw = options.before
+
+  const may = await assertMayExchangeMessages(meId, otherUserId, undefined)
+  if (may.error) return { error: may.error }
+
+  const baseOr = [
+    { senderId: meOid, receiverId: otherOid },
+    { senderId: otherOid, receiverId: meOid },
+  ]
+
+  let filter
+  if (beforeRaw != null && String(beforeRaw).trim() !== '') {
+    const beforeDate = new Date(beforeRaw)
+    if (Number.isNaN(beforeDate.getTime())) {
+      return { error: 'Invalid before cursor' }
+    }
+    filter = {
+      $and: [{ $or: baseOr }, { createdAt: { $lt: beforeDate } }],
+    }
+  } else {
+    filter = { $or: baseOr }
+  }
+
+  const rows = await Message.find(filter)
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .populate('senderId', 'name email role')
+    .populate('receiverId', 'name email role')
+    .populate('studentId', 'name')
+    .lean()
+
+  const hasMore = rows.length === limit
+  const chronological = [...rows].reverse().map(serializeMessage)
+  return { messages: chronological, hasMore }
 }

@@ -1,6 +1,14 @@
 import mongoose from 'mongoose'
 
-const gradeTypeSchema = new mongoose.Schema({
+const componentSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    weight: { type: Number, required: true, min: 0, max: 1 },
+  },
+  { _id: false },
+)
+
+const subjectSchema = new mongoose.Schema({
   classId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Class',
@@ -8,12 +16,16 @@ const gradeTypeSchema = new mongoose.Schema({
     index: true,
   },
   name: { type: String, required: true, trim: true },
-  // 0.0 -> 1.0; teachers can edit at any time.
-  weight: { type: Number, required: true, min: 0, max: 1 },
+  description: { type: String, trim: true },
+  /** Midterm / Final / … with weights for weighted-average (per subject). */
+  components: {
+    type: [componentSchema],
+    required: true,
+    validate: [(v) => Array.isArray(v) && v.length > 0, 'At least one component is required'],
+  },
   createdAt: { type: Date, default: Date.now },
 })
 
-gradeTypeSchema.index({ classId: 1, name: 1 }, { unique: false })
+subjectSchema.index({ classId: 1, name: 1 }, { unique: true })
 
-export const GradeType = mongoose.model('GradeType', gradeTypeSchema)
-
+export const Subject = mongoose.model('Subject', subjectSchema)
