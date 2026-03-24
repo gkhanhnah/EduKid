@@ -16,9 +16,17 @@ export async function fetchMessageContacts() {
   return Array.isArray(data?.contacts) ? data.contacts : []
 }
 
-export async function fetchMessageHistory(otherUserId) {
-  const { data } = await httpClient.get('/messages', {
-    params: { userId: otherUserId },
-  })
-  return Array.isArray(data?.messages) ? data.messages : []
+/**
+ * @param {string} otherUserId
+ * @param {{ limit?: number, before?: string }} [options] - pass `limit` to enable pagination + `hasMore` in response
+ */
+export async function fetchMessageHistory(otherUserId, options = {}) {
+  const params = { userId: otherUserId }
+  if (options.limit != null) params.limit = options.limit
+  if (options.before != null && options.before !== '') params.before = options.before
+
+  const { data } = await httpClient.get('/messages', { params })
+  const messages = Array.isArray(data?.messages) ? data.messages : []
+  const hasMore = Boolean(data?.hasMore)
+  return { messages, hasMore }
 }

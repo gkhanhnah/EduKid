@@ -48,6 +48,10 @@ function isImageMime(mime) {
   return typeof mime === 'string' && mime.startsWith('image/')
 }
 
+const MESSAGE_PAGE_SIZE = 50
+/** When scrollTop is below this, fetch older messages (lazy load). */
+const SCROLL_LOAD_OLDER_PX = 120
+
 export function Messages() {
   const { user } = useAuth()
   const { socketRef, connected, instanceId } = useSocket()
@@ -61,6 +65,8 @@ export function Messages() {
   const [groupError, setGroupError] = useState('')
   const [groupHistoryLoading, setGroupHistoryLoading] = useState(false)
   const [groupHistoryError, setGroupHistoryError] = useState('')
+  const [groupHasMoreOlder, setGroupHasMoreOlder] = useState(false)
+  const [groupLoadingOlder, setGroupLoadingOlder] = useState(false)
 
   const [contacts, setContacts] = useState([])
   const [contactsLoading, setContactsLoading] = useState(true)
@@ -70,6 +76,8 @@ export function Messages() {
   const [messages, setMessages] = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState('')
+  const [hasMoreOlder, setHasMoreOlder] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
 
   const [messageText, setMessageText] = useState('')
   const [sendError, setSendError] = useState('')
@@ -86,6 +94,10 @@ export function Messages() {
   const groupSelectedRef = useRef(groupSelected)
   groupSelectedRef.current = groupSelected
   const fileInputRef = useRef(null)
+  /** Skip auto-scroll after prepending older messages (direct chat). */
+  const skipScrollToBottomRef = useRef(false)
+  /** Skip auto-scroll after prepending older messages (class chat). */
+  const skipGroupScrollToBottomRef = useRef(false)
 
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current
@@ -97,8 +109,22 @@ export function Messages() {
   }, [])
 
   useEffect(() => {
+    if (chatMode === 'class') return
+    if (skipScrollToBottomRef.current) {
+      skipScrollToBottomRef.current = false
+      return
+    }
     scrollToBottom()
-  }, [messages, scrollToBottom])
+  }, [messages, scrollToBottom, chatMode])
+
+  useEffect(() => {
+    if (chatMode !== 'class') return
+    if (skipGroupScrollToBottomRef.current) {
+      skipGroupScrollToBottomRef.current = false
+      return
+    }
+    scrollToBottom()
+  }, [groupMessages, scrollToBottom, chatMode])
 
   const loadContacts = useCallback(async () => {
     setContactsLoading(true)
@@ -174,6 +200,7 @@ export function Messages() {
     // Reset selection when switching modes.
     setGroupSelected(null)
     setGroupMessages([])
+    setGroupHasMoreOlder(false)
     setGroupHistoryLoading(false)
     setGroupHistoryError('')
   }, [chatMode, loadClassChats])
@@ -185,22 +212,84 @@ export function Messages() {
   const loadHistory = useCallback(async (peerUserId) => {
     if (!peerUserId) {
       setMessages([])
+      setHasMoreOlder(false)
       return
     }
     setHistoryLoading(true)
     setHistoryError('')
+    setHasMoreOlder(false)
     try {
-      const list = await fetchMessageHistory(peerUserId)
+      const { messages: list, hasMore } = await fetchMessageHistory(peerUserId, {
+        limit: MESSAGE_PAGE_SIZE,
+      })
       setMessages(list)
+      setHasMoreOlder(hasMore)
     } catch (e) {
       setHistoryError(
         e?.response?.data?.error || e?.message || 'Could not load messages',
       )
       setMessages([])
+      setHasMoreOlder(false)
     } finally {
       setHistoryLoading(false)
     }
   }, [])
+
+  const loadOlderDirect = useCallback(async () => {
+    const peer = selected?.peerUserId
+    if (
+      !peer ||
+      !hasMoreOlder ||
+      loadingOlder ||
+      historyLoading ||
+      messages.length === 0
+    ) {
+      return
+    }
+    const oldest = messages[0]
+    const before = oldest?.createdAt
+    if (!before) return
+
+    setLoadingOlder(true)
+    try {
+      const el = scrollRef.current
+      const prevScrollHeight = el?.scrollHeight ?? 0
+      const prevScrollTop = el?.scrollTop ?? 0
+
+      const { messages: older, hasMore } = await fetchMessageHistory(peer, {
+        limit: MESSAGE_PAGE_SIZE,
+        before,
+      })
+
+      skipScrollToBottomRef.current = true
+      setMessages((prev) => {
+        const seen = new Set(prev.map((m) => String(m._id)))
+        const merged = [
+          ...older.filter((m) => !seen.has(String(m._id))),
+          ...prev,
+        ]
+        return merged
+      })
+      setHasMoreOlder(hasMore)
+
+      requestAnimationFrame(() => {
+        const box = scrollRef.current
+        if (!box) return
+        const newHeight = box.scrollHeight
+        box.scrollTop = newHeight - prevScrollHeight + prevScrollTop
+      })
+    } catch {
+      // keep existing messages; user can scroll again to retry
+    } finally {
+      setLoadingOlder(false)
+    }
+  }, [
+    selected?.peerUserId,
+    hasMoreOlder,
+    loadingOlder,
+    historyLoading,
+    messages,
+  ])
 
   useEffect(() => {
     if (chatMode !== 'direct') return
@@ -208,6 +297,7 @@ export function Messages() {
       loadHistory(selected.peerUserId)
     } else {
       setMessages([])
+      setHasMoreOlder(false)
     }
   }, [selected, loadHistory, chatMode])
 
@@ -266,23 +356,123 @@ export function Messages() {
 
     setGroupHistoryLoading(true)
     setGroupHistoryError('')
+    setGroupHasMoreOlder(false)
     try {
-      const data = await fetchClassChat(groupSelected)
-      setGroupMessages(Array.isArray(data?.messages) ? data.messages : [])
+      const data = await fetchClassChat(groupSelected, {
+        limit: MESSAGE_PAGE_SIZE,
+      })
+      setGroupMessages(data.messages)
+      setGroupHasMoreOlder(data.hasMore)
     } catch (e) {
       setGroupHistoryError(
         e?.response?.data?.error || e?.message || 'Could not load class chat',
       )
       setGroupMessages([])
+      setGroupHasMoreOlder(false)
     } finally {
       setGroupHistoryLoading(false)
     }
   }, [chatMode, groupSelected])
 
+  const loadOlderGroup = useCallback(async () => {
+    if (
+      !groupSelected ||
+      !groupHasMoreOlder ||
+      groupLoadingOlder ||
+      groupHistoryLoading ||
+      groupMessages.length === 0
+    ) {
+      return
+    }
+    const oldest = groupMessages[0]
+    const before = oldest?.createdAt
+    if (!before) return
+
+    setGroupLoadingOlder(true)
+    try {
+      const el = scrollRef.current
+      const prevScrollHeight = el?.scrollHeight ?? 0
+      const prevScrollTop = el?.scrollTop ?? 0
+
+      const data = await fetchClassChat(groupSelected, {
+        limit: MESSAGE_PAGE_SIZE,
+        before,
+      })
+      const older = data.messages
+
+      skipGroupScrollToBottomRef.current = true
+      setGroupMessages((prev) => {
+        const seen = new Set(prev.map((m) => String(m._id)))
+        return [...older.filter((m) => !seen.has(String(m._id))), ...prev]
+      })
+      setGroupHasMoreOlder(data.hasMore)
+
+      requestAnimationFrame(() => {
+        const box = scrollRef.current
+        if (!box) return
+        box.scrollTop = box.scrollHeight - prevScrollHeight + prevScrollTop
+      })
+    } catch {
+      // keep existing messages
+    } finally {
+      setGroupLoadingOlder(false)
+    }
+  }, [
+    groupSelected,
+    groupHasMoreOlder,
+    groupLoadingOlder,
+    groupHistoryLoading,
+    groupMessages,
+  ])
+
   useEffect(() => {
     if (chatMode !== 'class') return
     loadGroupHistory()
   }, [chatMode, groupSelected, loadGroupHistory])
+
+  const handleMessagesScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    if (el.scrollTop > SCROLL_LOAD_OLDER_PX) return
+
+    if (chatMode === 'class') {
+      if (
+        groupHistoryLoading ||
+        groupLoadingOlder ||
+        !groupHasMoreOlder ||
+        !groupSelected ||
+        groupMessages.length === 0
+      ) {
+        return
+      }
+      void loadOlderGroup()
+    } else {
+      if (
+        historyLoading ||
+        loadingOlder ||
+        !hasMoreOlder ||
+        !selected?.peerUserId ||
+        messages.length === 0
+      ) {
+        return
+      }
+      void loadOlderDirect()
+    }
+  }, [
+    chatMode,
+    groupHistoryLoading,
+    groupLoadingOlder,
+    groupHasMoreOlder,
+    groupSelected,
+    groupMessages.length,
+    loadOlderGroup,
+    historyLoading,
+    loadingOlder,
+    hasMoreOlder,
+    selected?.peerUserId,
+    messages.length,
+    loadOlderDirect,
+  ])
 
   const filteredContacts = useMemo(() => {
     if (chatMode !== 'direct') return []
@@ -370,11 +560,11 @@ export function Messages() {
     (Boolean(messageText.trim()) || Boolean(fileDraft))
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-background">
+    <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background md:flex-row">
       <Sidebar />
-      <div className="flex-1 flex overflow-hidden min-w-0">
-        <div className="w-96 bg-white border-r border-border flex flex-col shrink-0">
-          <div className="p-6 border-b border-border">
+      <div className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden md:flex-row">
+        <div className="flex min-h-0 w-full max-h-[42vh] shrink-0 flex-col border-r border-border bg-white md:h-full md:max-h-none md:w-96">
+          <div className="shrink-0 border-b border-border p-6">
             <h2 className="mb-1 text-lg font-semibold">Messages</h2>
             <div className="flex gap-2 mb-3">
               <button
@@ -424,7 +614,7 @@ export function Messages() {
               />
             </div>
           </div>
-          <div className="flex-1 overflow-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {chatMode === 'direct' ? (
               contactsLoading ? (
                 <p className="p-5 text-sm text-muted-foreground">Loading…</p>
@@ -515,8 +705,8 @@ export function Messages() {
           </div>
         </div>
 
-      <div className="flex-1 flex flex-col bg-background min-w-0">
-        <div className="bg-white border-b border-border p-4 md:p-6">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+          <div className="shrink-0 border-b border-border bg-white p-4 md:p-6">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4 min-w-0">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-lg font-semibold text-white shrink-0">
@@ -554,8 +744,14 @@ export function Messages() {
 
           <div
             ref={scrollRef}
-            className="flex-1 overflow-auto p-4 md:p-6 space-y-4"
+            onScroll={handleMessagesScroll}
+            className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 md:p-6"
           >
+            {(chatMode === 'class' ? groupLoadingOlder : loadingOlder) ? (
+              <p className="text-xs text-center text-muted-foreground py-1">
+                Loading older messages…
+              </p>
+            ) : null}
             {chatMode === 'class' ? (
               groupHistoryLoading ? (
                 <p className="text-sm text-muted-foreground">Loading class chat…</p>
@@ -706,7 +902,7 @@ export function Messages() {
             <div ref={listEndRef} />
           </div>
 
-          <div className="bg-white border-t border-border p-6">
+          <div className="shrink-0 border-t border-border bg-white p-6">
             {chatMode === 'class' ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm text-muted-foreground">

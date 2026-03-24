@@ -6,17 +6,28 @@ import { useAuth } from '../hooks/useAuth.js'
 import { LoadingState } from '../components/LoadingState.jsx'
 import { ErrorBanner } from '../components/ErrorBanner.jsx'
 import {
-  addGrade,
+  addGradeToSubject,
   toggleShowGrade,
   updateGrade,
-  createGradeType,
-  updateGradeType,
+  createSubject,
+  updateSubject,
   getClassGrades,
+  getSubjects,
+  getGradesBySubject,
 } from '../services/grade.service.js'
 
+function resolveWeightFromGrade(g, fallbackSubject) {
+  const sub = (g && g.subject) || fallbackSubject
+  const compName = g?.componentName
+  if (sub?.components && compName) {
+    const c = sub.components.find((x) => x.name === compName)
+    const w = Number(c?.weight)
+    if (Number.isFinite(w)) return w
+  }
+  return NaN
+}
+
 function calculateWeightedAverage({ grades, getWeight }) {
-  // Frontend mirrors backend formula for instant feedback:
-  // weighted_avg = sum(score * weight) / sum(weights)
   let weightedSum = 0
   let weightSum = 0
   for (const g of grades) {
@@ -64,6 +75,11 @@ function Modal({ open, title, children, onClose }) {
   )
 }
 
+const defaultComponentRows = () => [
+  { name: 'Midterm', weight: '0.5' },
+  { name: 'Final', weight: '0.5' },
+]
+
 export function GradeManagement() {
   const { user } = useAuth()
   const { classId } = useParams()
@@ -74,88 +90,182 @@ export function GradeManagement() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [data, setData] = useState(null)
+  const [classData, setClassData] = useState(null)
+  const [subjects, setSubjects] = useState([])
 
-  // Teacher can edit weights anytime; draft weights provide instant UI feedback.
-  const [draftWeightsByTypeId, setDraftWeightsByTypeId] = useState({})
-  const dirty = useMemo(() => Object.keys(draftWeightsByTypeId).length > 0, [draftWeightsByTypeId])
+  const [selectedSubjectId, setSelectedSubjectId] = useState('')
+  const [subjectGradesLoading, setSubjectGradesLoading] = useState(false)
+  const [subjectGradesData, setSubjectGradesData] = useState(null)
 
-  const [typeModalOpen, setTypeModalOpen] = useState(false)
-  const [typeName, setTypeName] = useState('')
-  const [typeWeight, setTypeWeight] = useState('0.1')
-  const [typeBusy, setTypeBusy] = useState(false)
-  const [typeError, setTypeError] = useState('')
+  const [subjectModalOpen, setSubjectModalOpen] = useState(false)
+  const [editingSubject, setEditingSubject] = useState(null)
+  const [subjectName, setSubjectName] = useState('')
+  const [subjectDescription, setSubjectDescription] = useState('')
+  const [componentRows, setComponentRows] = useState(defaultComponentRows)
+  const [subjectBusy, setSubjectBusy] = useState(false)
+  const [subjectError, setSubjectError] = useState('')
 
   const [gradeModal, setGradeModal] = useState({
     open: false,
-    mode: 'add', // add | edit
+    mode: 'add',
     studentId: null,
     gradeId: null,
-    initialTypeId: null,
+    initialComponentName: null,
   })
-
   const [modalDraftScore, setModalDraftScore] = useState('')
   const [modalDraftShowToParent, setModalDraftShowToParent] = useState(false)
   const [modalBusy, setModalBusy] = useState(false)
   const [modalError, setModalError] = useState('')
 
-  const load = useCallback(async ({ resetDraft = true } = {}) => {
+  const loadAll = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const d = await getClassGrades(classId)
-      setData(d)
-      if (resetDraft) setDraftWeightsByTypeId({})
+      const [subRes, classRes] = await Promise.all([getSubjects(classId), getClassGrades(classId)])
+      setSubjects(subRes.subjects ?? [])
+      setClassData(classRes)
     } catch (e) {
       setError(e?.response?.data?.error || e?.message || 'Could not load grades')
-      setData(null)
+      setClassData(null)
+      setSubjects([])
     } finally {
       setLoading(false)
     }
   }, [classId])
 
   useEffect(() => {
-    load()
-  }, [load])
+    loadAll()
+  }, [loadAll])
 
-  const gradeTypes = data?.gradeTypes ?? []
+  const activeSubject = useMemo(() => {
+    if (!selectedSubjectId) return null
+    return (
+      subjects.find((s) => String(s._id) === String(selectedSubjectId)) ||
+      subjectGradesData?.subject ||
+      null
+    )
+  }, [selectedSubjectId, subjects, subjectGradesData?.subject])
 
-  const getDraftWeightForType = useCallback(
-    (gradeOrType) => {
-      const typeId =
-        typeof gradeOrType?.type?._id !== 'undefined'
-          ? String(gradeOrType.type._id)
-          : String(gradeOrType?._id ?? gradeOrType?.typeId ?? '')
-      if (!typeId) return 0
-      const base = gradeTypes.find((t) => String(t._id) === typeId)?.weight
-      const draft = draftWeightsByTypeId[typeId]
-      return draft !== undefined ? Number(draft) : Number(base ?? 0)
-    },
-    [draftWeightsByTypeId, gradeTypes],
-  )
-
-  const displayedTypeWeightsSum = useMemo(() => {
-    let sum = 0
-    for (const t of gradeTypes) {
-      const w = draftWeightsByTypeId[t._id] ?? t.weight
-      sum += Number(w || 0)
+  const loadSubjectGrades = useCallback(async (subjectId) => {
+    if (!subjectId) {
+      setSubjectGradesData(null)
+      return
     }
-    return sum
-  }, [draftWeightsByTypeId, gradeTypes])
+    setSubjectGradesLoading(true)
+    try {
+      const d = await getGradesBySubject(subjectId)
+      setSubjectGradesData(d)
+    } catch (e) {
+      setError(e?.response?.data?.error || e?.message || 'Could not load subject grades')
+      setSubjectGradesData(null)
+    } finally {
+      setSubjectGradesLoading(false)
+    }
+  }, [])
 
-  const weightWarning = useMemo(() => {
-    const EPS = 0.02
-    const diff = Math.abs(displayedTypeWeightsSum - 1)
-    if (!dirty) return data?.weightWarning ?? null
-    if (diff <= EPS) return null
-    return { expected: 1, typeWeightsSum: displayedTypeWeightsSum, diff }
-  }, [data?.weightWarning, displayedTypeWeightsSum, dirty])
+  useEffect(() => {
+    if (selectedSubjectId) {
+      loadSubjectGrades(selectedSubjectId)
+    } else {
+      setSubjectGradesData(null)
+    }
+  }, [selectedSubjectId, loadSubjectGrades])
+
+  const gradesByStudentId = useMemo(() => {
+    const m = new Map()
+    for (const g of subjectGradesData?.grades ?? []) {
+      const sid = String(g.student?._id ?? g.student ?? '')
+      if (!sid) continue
+      if (!m.has(sid)) m.set(sid, [])
+      m.get(sid).push(g)
+    }
+    return m
+  }, [subjectGradesData?.grades])
+
+  const openCreateSubject = useCallback(() => {
+    setEditingSubject(null)
+    setSubjectName('')
+    setSubjectDescription('')
+    setComponentRows(defaultComponentRows())
+    setSubjectError('')
+    setSubjectModalOpen(true)
+  }, [])
+
+  const openEditSubject = useCallback((sub) => {
+    setEditingSubject(sub)
+    setSubjectName(sub.name ?? '')
+    setSubjectDescription(sub.description ?? '')
+    setComponentRows(
+      (sub.components ?? [{ name: 'Component', weight: 1 }]).map((c) => ({
+        name: c.name,
+        weight: String(c.weight),
+      })),
+    )
+    setSubjectError('')
+    setSubjectModalOpen(true)
+  }, [])
+
+  const submitSubject = useCallback(async () => {
+    setSubjectBusy(true)
+    setSubjectError('')
+    try {
+      const comps = componentRows
+        .map((r) => ({
+          name: String(r.name ?? '').trim(),
+          weight: Number(r.weight),
+        }))
+        .filter((r) => r.name)
+      if (!comps.length) throw new Error('Add at least one component with a name.')
+      for (const c of comps) {
+        if (!Number.isFinite(c.weight) || c.weight < 0 || c.weight > 1) {
+          throw new Error('Each weight must be between 0 and 1.')
+        }
+      }
+      if (!subjectName.trim()) throw new Error('Subject name is required.')
+
+      if (editingSubject?._id) {
+        await updateSubject(editingSubject._id, {
+          name: subjectName.trim(),
+          description: subjectDescription.trim() || undefined,
+          components: comps,
+        })
+      } else {
+        await createSubject({
+          classId,
+          name: subjectName.trim(),
+          description: subjectDescription.trim() || undefined,
+          components: comps,
+        })
+      }
+      setSubjectModalOpen(false)
+      await loadAll()
+      if (selectedSubjectId && editingSubject && String(editingSubject._id) === String(selectedSubjectId)) {
+        await loadSubjectGrades(selectedSubjectId)
+      }
+    } catch (e) {
+      setSubjectError(e?.response?.data?.error || e?.message || 'Could not save subject')
+    } finally {
+      setSubjectBusy(false)
+    }
+  }, [
+    classId,
+    componentRows,
+    editingSubject,
+    loadAll,
+    loadSubjectGrades,
+    selectedSubjectId,
+    subjectDescription,
+    subjectName,
+  ])
+
+  const activeComponentName = gradeModal.initialComponentName
 
   const openAddGrade = useCallback(
     (studentId) => {
-      const student = data?.students?.find((s) => String(s.student._id) === String(studentId))
-      const existingTypeIds = new Set((student?.grades ?? []).map((g) => String(g.type._id)))
-      const firstMissing = gradeTypes.find((t) => !existingTypeIds.has(String(t._id))) ?? gradeTypes[0]
+      const components = activeSubject?.components ?? []
+      const studentGrades = gradesByStudentId.get(String(studentId)) ?? []
+      const used = new Set(studentGrades.map((g) => g.componentName))
+      const firstMissing = components.find((c) => !used.has(c.name)) ?? components[0]
 
       setModalDraftScore('')
       setModalDraftShowToParent(false)
@@ -165,10 +275,10 @@ export function GradeManagement() {
         mode: 'add',
         studentId,
         gradeId: null,
-        initialTypeId: firstMissing?._id ?? null,
+        initialComponentName: firstMissing?.name ?? null,
       })
     },
-    [data?.students, gradeTypes],
+    [activeSubject?.components, gradesByStudentId],
   )
 
   const openEditGrade = useCallback((grade) => {
@@ -178,45 +288,36 @@ export function GradeManagement() {
     setGradeModal({
       open: true,
       mode: 'edit',
-      // Backend returns `student` as an ObjectId (not populated), so use it directly.
-      studentId: grade?.student ? String(grade.student) : null,
+      studentId: grade?.student?._id ? String(grade.student._id) : String(grade?.student ?? ''),
       gradeId: grade?._id ?? null,
-      initialTypeId: grade?.type?._id ?? null,
+      initialComponentName: grade?.componentName ?? null,
     })
   }, [])
 
-  const activeGradeTypeId = gradeModal.initialTypeId
-
-  useEffect(() => {
-    if (!gradeModal.open) return
-    // When editing, the gradeModal.initialTypeId is already set.
-    // No additional sync needed for draft score because modalDraftScore is controlled above.
-  }, [gradeModal.open])
-
   const previewWeightedAverage = useMemo(() => {
-    if (!gradeModal.open || !data) return null
-    const student = data.students.find((s) => String(s.student._id) === String(gradeModal.studentId))
+    if (!gradeModal.open || !classData || !activeSubject) return null
+    const student = classData.students.find((s) => String(s.student._id) === String(gradeModal.studentId))
     if (!student) return null
 
     const scoreNumber = modalDraftScore === '' ? null : Number(modalDraftScore)
     const draftShow = Boolean(modalDraftShowToParent)
+    const comp = activeComponentName
 
-    const nextGrades = student.grades.map((g) => ({ ...g }))
-    const targetTypeId = activeGradeTypeId ? String(activeGradeTypeId) : null
-    if (!targetTypeId) return student.weightedAverage
+    const base = (gradesByStudentId.get(String(gradeModal.studentId)) ?? []).map((g) => ({ ...g }))
+    const nextGrades = base.map((g) => ({ ...g, subject: g.subject || activeSubject }))
 
-    // Replace score for the edited/added type (preview only).
-    const idx = nextGrades.findIndex((g) => String(g.type._id) === targetTypeId)
+    const idx = nextGrades.findIndex((g) => g.componentName === comp)
     if (idx >= 0) {
       nextGrades[idx] = {
         ...nextGrades[idx],
         score: scoreNumber ?? nextGrades[idx].score,
         showToParent: draftShow,
       }
-    } else if (scoreNumber != null) {
+    } else if (scoreNumber != null && comp) {
       nextGrades.push({
         _id: 'preview',
-        type: gradeTypes.find((t) => String(t._id) === targetTypeId),
+        subject: activeSubject,
+        componentName: comp,
         score: scoreNumber,
         showToParent: draftShow,
       })
@@ -224,40 +325,37 @@ export function GradeManagement() {
 
     return calculateWeightedAverage({
       grades: nextGrades,
-      getWeight: (g) => {
-        const typeId = String(g?.type?._id ?? '')
-        return draftWeightsByTypeId[typeId] ?? g?.type?.weight ?? 0
-      },
+      getWeight: (g) => resolveWeightFromGrade(g, activeSubject),
     })
   }, [
-    activeGradeTypeId,
-    data,
-    draftWeightsByTypeId,
+    activeComponentName,
+    activeSubject,
+    classData,
     gradeModal.open,
     gradeModal.studentId,
-    gradeTypes,
+    gradesByStudentId,
     modalDraftScore,
     modalDraftShowToParent,
   ])
 
   const submitGrade = useCallback(async () => {
-    if (!gradeModal.open) return
+    if (!gradeModal.open || !selectedSubjectId) return
     setModalBusy(true)
     setModalError('')
 
     try {
       const studentId = gradeModal.studentId
       const mode = gradeModal.mode
-      const typeId = gradeModal.initialTypeId
+      const componentName = gradeModal.initialComponentName
       const score = Number(modalDraftScore)
-      if (!studentId || !typeId) throw new Error('Student and grade type are required.')
+      if (!studentId || !componentName) throw new Error('Student and component are required.')
       if (!Number.isFinite(score)) throw new Error('Score must be a valid number.')
 
       if (mode === 'add') {
-        await addGrade({
+        await addGradeToSubject(selectedSubjectId, {
           studentId,
           classId,
-          typeId,
+          componentName,
           score,
           showToParent: modalDraftShowToParent,
         })
@@ -269,7 +367,8 @@ export function GradeManagement() {
       }
 
       setGradeModal((p) => ({ ...p, open: false }))
-      load({ resetDraft: false })
+      await loadSubjectGrades(selectedSubjectId)
+      await loadAll()
     } catch (e) {
       setModalError(e?.response?.data?.error || e?.message || 'Could not save grade')
     } finally {
@@ -278,116 +377,79 @@ export function GradeManagement() {
   }, [
     classId,
     gradeModal.gradeId,
-    gradeModal.initialTypeId,
+    gradeModal.initialComponentName,
     gradeModal.mode,
     gradeModal.open,
     gradeModal.studentId,
-    load,
+    loadAll,
+    loadSubjectGrades,
     modalDraftScore,
     modalDraftShowToParent,
+    selectedSubjectId,
   ])
 
   const toggleStudentShowToParents = useCallback(
-    async (student) => {
-      const grades = student?.grades ?? []
+    async (studentId) => {
+      const grades = gradesByStudentId.get(String(studentId)) ?? []
       if (!grades.length) return
 
       const anyVisible = grades.some((g) => Boolean(g.showToParent))
       const nextVisible = !anyVisible
 
       try {
-        // showToParent logic:
-        // - If turning "on": set showToParent=true for each grade.
-        // - If turning "off": set showToParent=false for each grade.
         if (nextVisible) {
           await Promise.all(
-            grades
-              .filter((g) => !g.showToParent)
-              .map((g) => toggleShowGrade(g._id)),
+            grades.filter((g) => !g.showToParent).map((g) => toggleShowGrade(g._id)),
           )
         } else {
           await Promise.all(grades.map((g) => updateGrade(g._id, { showToParent: false })))
         }
-        load({ resetDraft: false })
+        await loadSubjectGrades(selectedSubjectId)
+        await loadAll()
       } catch (e) {
         setError(e?.response?.data?.error || e?.message || 'Could not update visibility')
       }
     },
-    [load],
+    [gradesByStudentId, loadAll, loadSubjectGrades, selectedSubjectId],
   )
 
   const displayedStudents = useMemo(() => {
-    if (!data) return []
-    return data.students.map((s) => {
+    if (!classData) return []
+    const components = activeSubject?.components ?? []
+    return classData.students.map((s) => {
+      const studentGrades = (gradesByStudentId.get(String(s.student._id)) ?? []).map((g) => ({
+        ...g,
+        subject: g.subject || activeSubject,
+      }))
       const weightedAverage = calculateWeightedAverage({
-        grades: s.grades,
-        getWeight: (g) => {
-          const typeId = String(g?.type?._id ?? '')
-          return draftWeightsByTypeId[typeId] ?? g?.type?.weight ?? 0
-        },
+        grades: studentGrades,
+        getWeight: (g) => resolveWeightFromGrade(g, activeSubject),
       })
-      const weightSum = s.grades.reduce((acc, g) => {
-        const typeId = String(g?.type?._id ?? '')
-        const w = draftWeightsByTypeId[typeId] ?? g?.type?.weight ?? 0
-        return acc + Number(w || 0)
-      }, 0)
+      const weightSum = studentGrades.reduce((acc, g) => acc + resolveWeightFromGrade(g, activeSubject), 0)
       return {
         ...s,
+        studentGrades,
         weightedAverage,
         weightSum,
+        components,
       }
     })
-  }, [data, draftWeightsByTypeId])
+  }, [activeSubject, classData, gradesByStudentId])
 
-  const saveWeights = useCallback(async () => {
-    if (!dirty) return
-    try {
-      setError('')
-      setLoading(true)
-      const updates = gradeTypes
-        .map((t) => ({ id: t._id, weight: draftWeightsByTypeId[t._id] }))
-        .filter((u) => u.weight !== undefined && Number.isFinite(Number(u.weight)))
+  const subjectWeightWarnings = classData?.subjectWeightWarnings ?? []
+  const componentsSumForActiveSubject = useMemo(() => {
+    const comps = activeSubject?.components ?? []
+    return comps.reduce((a, c) => a + Number(c.weight || 0), 0)
+  }, [activeSubject?.components])
 
-      for (const u of updates) {
-        await updateGradeType(u.id, { weight: Number(u.weight) })
-      }
+  const activeSubjectWeightWarning = useMemo(() => {
+    const EPS = 0.02
+    const diff = Math.abs(componentsSumForActiveSubject - 1)
+    if (diff <= EPS) return null
+    return { componentsWeightSum: componentsSumForActiveSubject, expected: 1, diff }
+  }, [componentsSumForActiveSubject])
 
-      await load({ resetDraft: true })
-    } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Could not save weights')
-      setLoading(false)
-      await load({ resetDraft: true })
-    } finally {
-      setLoading(false)
-    }
-  }, [dirty, draftWeightsByTypeId, gradeTypes, load, updateGradeType])
-
-  const openCreateType = useCallback(() => {
-    setTypeError('')
-    setTypeName('')
-    setTypeWeight('0.1')
-    setTypeModalOpen(true)
-  }, [])
-
-  const submitCreateType = useCallback(async () => {
-    setTypeBusy(true)
-    setTypeError('')
-    try {
-      await createGradeType({
-        classId,
-        name: typeName,
-        weight: Number(typeWeight),
-      })
-      setTypeModalOpen(false)
-      await load({ resetDraft: true })
-    } catch (e) {
-      setTypeError(e?.response?.data?.error || e?.message || 'Could not create grade type')
-    } finally {
-      setTypeBusy(false)
-    }
-  }, [classId, createGradeType, load, typeName, typeWeight])
-
-  if (loading && !data) {
+  if (loading && !classData) {
     return (
       <div className="flex min-h-screen flex-col md:flex-row bg-background">
         <Sidebar />
@@ -400,13 +462,13 @@ export function GradeManagement() {
     )
   }
 
-  if (error) {
+  if (error && !classData) {
     return (
       <div className="flex min-h-screen flex-col md:flex-row bg-background">
         <Sidebar />
         <div className="flex-1 overflow-auto">
           <div className="p-4 md:p-8 max-w-6xl mx-auto">
-            <ErrorBanner message={error} onRetry={load} />
+            <ErrorBanner message={error} onRetry={loadAll} />
           </div>
         </div>
       </div>
@@ -421,277 +483,298 @@ export function GradeManagement() {
           <div className="mb-6">
             <h1 className="text-2xl md:text-3xl font-bold mb-2">Grade Management</h1>
             <p className="text-muted-foreground">
-              Enter grades, adjust grade-type weights, and control when grades become visible to parents.
+              Create subjects with weighted components, enter grades per student, and control parent visibility.
             </p>
           </div>
+
+          {error ? (
+            <div className="mb-4">
+              <ErrorBanner message={error} onRetry={loadAll} />
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6">
             <div className="lg:col-span-2 bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm">
               <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
                 <div>
-                  <h2 className="font-semibold text-lg">Grade Type Weights</h2>
+                  <h2 className="font-semibold text-lg">Subjects</h2>
                   <p className="text-sm text-muted-foreground mt-1">
-                    These weights are used for weighted average calculation.
+                    Each subject has components (e.g. Midterm, Final) with weights for the class average.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={openCreateType}
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Type
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={!dirty || loading}
-                    onClick={saveWeights}
-                  >
-                    Save Weights
-                  </button>
-                </div>
+                <button type="button" className="btn btn-primary" onClick={openCreateSubject}>
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add subject
+                </button>
               </div>
 
-              {dirty ? (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Weight changes are not applied to the parent view until you click <span className="font-medium">Save Weights</span>.
-                </p>
-              ) : null}
-
-              {weightWarning ? (
+              {subjectWeightWarnings.length ? (
                 <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 mb-4 text-sm text-destructive">
-                  <div className="font-semibold">Optional check</div>
-                  <div className="mt-1">
-                    Total type weights sum to {formatNumberOrDash(displayedTypeWeightsSum, 2)} (expected 1.0).
-                    Weighted average still works; this is just a warning.
-                  </div>
+                  <div className="font-semibold">Weight check (per subject)</div>
+                  <ul className="mt-2 list-disc pl-5 space-y-1">
+                    {subjectWeightWarnings.map((w) => (
+                      <li key={String(w.subjectId)}>
+                        {w.subjectName}: component weights sum to {formatNumberOrDash(w.typeWeightsSum, 2)}{' '}
+                        (expected 1.0).
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ) : null}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {gradeTypes.map((t) => {
-                  const value = draftWeightsByTypeId[t._id] ?? t.weight
-                  return (
-                    <label
-                      key={t._id}
-                      className="flex flex-col gap-1 rounded-2xl border border-border/60 bg-background p-3"
+              {!subjects.length ? (
+                <p className="text-sm text-muted-foreground">No subjects yet. Add a subject to record grades.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {subjects.map((sub) => (
+                    <li
+                      key={sub._id}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-background p-3"
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="font-medium">{t.name}</span>
-                        <span className="text-xs text-muted-foreground tabular-nums">{formatNumberOrDash(value, 2)}</span>
+                      <div>
+                        <div className="font-medium">{sub.name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {(sub.components ?? [])
+                            .map((c) => `${c.name} (${formatNumberOrDash(c.weight, 2)})`)
+                            .join(' · ') || 'No components'}
+                        </div>
                       </div>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
-                        max="1"
-                        value={value}
-                        onChange={(e) => {
-                          const v = e.target.value
-                          const n = v === '' ? '' : Number(v)
-                          setDraftWeightsByTypeId((prev) => ({
-                            ...prev,
-                            [t._id]: n,
-                          }))
-                        }}
-                        className="w-full"
-                      />
-                    </label>
-                  )
-                })}
-              </div>
-
-              {!gradeTypes.length ? (
-                <p className="text-sm text-muted-foreground mt-4">No grade types yet. Add a type to begin.</p>
-              ) : null}
+                      <button
+                        type="button"
+                        className="btn btn-secondary text-sm"
+                        onClick={() => openEditSubject(sub)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm">
-              <h2 className="font-semibold text-lg mb-2">Visibility to Parents</h2>
+              <h2 className="font-semibold text-lg mb-2">Visibility to parents</h2>
               <p className="text-sm text-muted-foreground">
-                Teachers control whether each grade is visible to parents via the “Show” toggle on every student.
+                Use Show / Hide per student for the selected subject. Only visible grades appear in the parent
+                view.
               </p>
             </div>
           </div>
 
-          <div className="space-y-4 md:space-y-6">
-            {displayedStudents.map((s) => {
-              const visibleCount = s.grades.filter((g) => g.showToParent).length
-              const totalCount = s.grades.length
-              const anyVisible = visibleCount > 0
-              const avgText = s.weightedAverage == null ? '—' : formatNumberOrDash(s.weightedAverage, 2)
+          <div className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm mb-6">
+            <h2 className="font-semibold text-lg mb-3">Grades by subject</h2>
+            <label className="field max-w-md">
+              <span>Subject</span>
+              <select
+                value={selectedSubjectId}
+                onChange={(e) => setSelectedSubjectId(e.target.value)}
+                className="w-full rounded-xl border border-border p-2"
+              >
+                <option value="">Select a subject…</option>
+                {subjects.map((s) => (
+                  <option key={s._id} value={s._id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-              return (
-                <div
-                  key={s.student._id}
-                  className="bg-white rounded-3xl border border-border p-4 md:p-6 shadow-sm"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                    <div>
-                      <h3 className="text-lg font-semibold">{s.student.name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Weighted average: <span className="font-semibold text-primary">{avgText}</span>
-                      </p>
-                      {totalCount ? (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Parents can see {visibleCount}/{totalCount} grades.
-                        </p>
-                      ) : (
-                        <p className="text-xs text-muted-foreground mt-1">No grades added yet.</p>
-                      )}
-                    </div>
+            {selectedSubjectId && subjectGradesLoading ? (
+              <p className="text-sm text-muted-foreground mt-4">Loading grades…</p>
+            ) : null}
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={() => openAddGrade(s.student._id)}
-                      >
-                        <Plus className="w-4 h-4 mr-1" />
-                        Add Grade
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn ${anyVisible ? 'btn-secondary' : 'btn-primary'}`}
-                    disabled={!totalCount || loading}
-                        onClick={() => toggleStudentShowToParents(s)}
-                      >
-                        {anyVisible ? (
-                          <>
-                            <EyeOff className="w-4 h-4 mr-1" />
-                            Hide
-                          </>
-                        ) : (
-                          <>
-                            <Eye className="w-4 h-4 mr-1" />
-                            Show
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {gradeTypes.length ? (
-                    <div className="mt-4 overflow-x-auto">
-                      <div className="min-w-[520px]">
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                          {gradeTypes.map((t) => {
-                            const g = s.grades.find((x) => String(x.type._id) === String(t._id))
-                            const visible = Boolean(g?.showToParent)
-                            return (
-                              <div
-                                key={t._id}
-                                className="rounded-2xl border border-border/60 bg-background p-3"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <div className="font-medium">{t.name}</div>
-                                    <div className="text-xs text-muted-foreground tabular-nums mt-0.5">
-                                      Weight: {formatNumberOrDash(getDraftWeightForType({ type: { _id: t._id } }), 2)}
-                                    </div>
-                                  </div>
-                                  {g ? (
-                                    <span
-                                      className={`text-[0.75rem] px-2 py-1 rounded-xl border ${
-                                        visible ? 'bg-secondary/15 border-secondary/30 text-secondary' : 'bg-muted/40 border-border text-muted-foreground'
-                                      }`}
-                                    >
-                                      {visible ? 'Visible' : 'Hidden'}
-                                    </span>
-                                  ) : (
-                                    <span className="text-[0.75rem] px-2 py-1 rounded-xl border bg-muted/30 border-border text-muted-foreground">
-                                      Missing
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center justify-between gap-2 mt-3">
-                                  <div className="text-sm font-semibold tabular-nums">
-                                    {g ? formatNumberOrDash(g.score, 0) : '—'}
-                                  </div>
-                                  {g ? (
-                                    <button
-                                      type="button"
-                                      className="btn btn-secondary"
-                                      onClick={() => openEditGrade(g)}
-                                    >
-                                      <Pencil className="w-4 h-4" />
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      className="btn btn-secondary"
-                                      onClick={() => {
-                                        // Open add modal with the missing type pre-selected.
-                                        setModalDraftScore('')
-                                        setModalDraftShowToParent(false)
-                                        setModalError('')
-                                        setGradeModal({
-                                          open: true,
-                                          mode: 'add',
-                                          studentId: s.student._id,
-                                          gradeId: null,
-                                          initialTypeId: t._id,
-                                        })
-                                      }}
-                                    >
-                                      <Plus className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              )
-            })}
-
-            {!displayedStudents.length ? (
-              <div className="bg-white rounded-3xl border border-border p-6 shadow-sm text-muted-foreground text-sm">
-                No students found in this class.
+            {selectedSubjectId && !subjectGradesLoading && activeSubjectWeightWarning ? (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 mt-4 text-sm text-amber-900">
+                Component weights for <span className="font-medium">{activeSubject?.name}</span> sum to{' '}
+                {formatNumberOrDash(activeSubjectWeightWarning.componentsWeightSum, 2)} (expected 1.0).
               </div>
             ) : null}
+
+            {!selectedSubjectId ? (
+              <p className="text-sm text-muted-foreground mt-4">Choose a subject to view and edit grades.</p>
+            ) : null}
           </div>
+
+          {selectedSubjectId && !subjectGradesLoading ? (
+            <div className="space-y-4 md:space-y-6">
+              {displayedStudents.map((s) => {
+                const studentGrades = s.studentGrades
+                const visibleCount = studentGrades.filter((g) => g.showToParent).length
+                const totalCount = studentGrades.length
+                const anyVisible = visibleCount > 0
+                const avgText = s.weightedAverage == null ? '—' : formatNumberOrDash(s.weightedAverage, 2)
+                const comps = s.components ?? []
+
+                return (
+                  <div
+                    key={s.student._id}
+                    className="bg-white rounded-3xl border border-border p-4 md:p-6 shadow-sm"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold">{s.student.name}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Weighted average: <span className="font-semibold text-primary">{avgText}</span>
+                        </p>
+                        {totalCount ? (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Parents can see {visibleCount}/{totalCount} grades for this subject.
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground mt-1">No grades for this subject yet.</p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => openAddGrade(s.student._id)}
+                          disabled={!comps.length}
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add grade
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn ${anyVisible ? 'btn-secondary' : 'btn-primary'}`}
+                          disabled={!totalCount || loading || subjectGradesLoading}
+                          onClick={() => toggleStudentShowToParents(s.student._id)}
+                        >
+                          {anyVisible ? (
+                            <>
+                              <EyeOff className="w-4 h-4 mr-1" />
+                              Hide
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-4 h-4 mr-1" />
+                              Show
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {comps.length ? (
+                      <div className="mt-4 overflow-x-auto">
+                        <div className="min-w-[520px]">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {comps.map((c) => {
+                              const g = studentGrades.find((x) => x.componentName === c.name)
+                              const visible = Boolean(g?.showToParent)
+                              return (
+                                <div
+                                  key={c.name}
+                                  className="rounded-2xl border border-border/60 bg-background p-3"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <div className="font-medium">{c.name}</div>
+                                      <div className="text-xs text-muted-foreground tabular-nums mt-0.5">
+                                        Weight: {formatNumberOrDash(c.weight, 2)}
+                                      </div>
+                                    </div>
+                                    {g ? (
+                                      <span
+                                        className={`text-[0.75rem] px-2 py-1 rounded-xl border ${
+                                          visible
+                                            ? 'bg-secondary/15 border-secondary/30 text-secondary'
+                                            : 'bg-muted/40 border-border text-muted-foreground'
+                                        }`}
+                                      >
+                                        {visible ? 'Visible' : 'Hidden'}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[0.75rem] px-2 py-1 rounded-xl border bg-muted/30 border-border text-muted-foreground">
+                                        Missing
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center justify-between gap-2 mt-3">
+                                    <div className="text-sm font-semibold tabular-nums">
+                                      {g ? formatNumberOrDash(g.score, 0) : '—'}
+                                    </div>
+                                    {g ? (
+                                      <button
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        onClick={() => openEditGrade(g)}
+                                      >
+                                        <Pencil className="w-4 h-4" />
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        onClick={() => {
+                                          setModalDraftScore('')
+                                          setModalDraftShowToParent(false)
+                                          setModalError('')
+                                          setGradeModal({
+                                            open: true,
+                                            mode: 'add',
+                                            studentId: s.student._id,
+                                            gradeId: null,
+                                            initialComponentName: c.name,
+                                          })
+                                        }}
+                                      >
+                                        <Plus className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )
+              })}
+
+              {!displayedStudents.length ? (
+                <div className="bg-white rounded-3xl border border-border p-6 shadow-sm text-muted-foreground text-sm">
+                  No students in this class.
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
 
-      {/* Add/Edit Grade Modal */}
       <Modal
         open={gradeModal.open}
-        title={gradeModal.mode === 'add' ? 'Add Grade' : 'Edit Grade'}
+        title={gradeModal.mode === 'add' ? 'Add grade' : 'Edit grade'}
         onClose={() => {
           if (modalBusy) return
           setGradeModal((p) => ({ ...p, open: false }))
         }}
       >
         <div className="space-y-3">
-          {gradeTypes.length ? (
+          {(activeSubject?.components ?? []).length ? (
             <label className="field">
-              <span>Grade Type</span>
+              <span>Component</span>
               <select
-                value={activeGradeTypeId ?? ''}
+                value={activeComponentName ?? ''}
                 onChange={(e) => {
                   const v = e.target.value
-                  setGradeModal((p) => ({ ...p, initialTypeId: v }))
+                  setGradeModal((p) => ({ ...p, initialComponentName: v }))
                 }}
                 className="w-full rounded-xl border border-border p-2"
                 disabled={gradeModal.mode === 'edit'}
               >
-                {gradeTypes.map((t) => (
-                  <option key={t._id} value={t._id}>
-                    {t.name}
+                {(activeSubject?.components ?? []).map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name}
                   </option>
                 ))}
               </select>
             </label>
           ) : (
-            <p className="text-sm text-destructive">Add at least one grade type before creating grades.</p>
+            <p className="text-sm text-destructive">Select a subject with components first.</p>
           )}
 
           <label className="field">
@@ -716,7 +799,7 @@ export function GradeManagement() {
             <div className="text-sm">
               <div className="font-medium">Visible to parents</div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                Only visible grades are shown in the parent view.
+                Only visible grades appear in the parent view.
               </div>
             </div>
           </label>
@@ -745,7 +828,7 @@ export function GradeManagement() {
               type="button"
               className="btn btn-primary"
               onClick={submitGrade}
-              disabled={modalBusy || !activeGradeTypeId}
+              disabled={modalBusy || !activeComponentName}
             >
               {modalBusy ? 'Saving…' : gradeModal.mode === 'add' ? 'Add' : 'Save'}
             </button>
@@ -753,57 +836,99 @@ export function GradeManagement() {
         </div>
       </Modal>
 
-      {/* Add Grade Type Modal */}
       <Modal
-        open={typeModalOpen}
-        title="Add Grade Type"
+        open={subjectModalOpen}
+        title={editingSubject ? 'Edit subject' : 'Add subject'}
         onClose={() => {
-          if (typeBusy) return
-          setTypeModalOpen(false)
+          if (subjectBusy) return
+          setSubjectModalOpen(false)
         }}
       >
         <div className="space-y-3">
           <label className="field">
             <span>Name</span>
             <input
-              value={typeName}
-              onChange={(e) => setTypeName(e.target.value)}
-              placeholder="Quiz, Midterm, Final..."
+              value={subjectName}
+              onChange={(e) => setSubjectName(e.target.value)}
+              placeholder="Math, English…"
               className="w-full"
             />
           </label>
           <label className="field">
-            <span>Weight (0.0 - 1.0)</span>
+            <span>Description (optional)</span>
             <input
-              type="number"
-              inputMode="decimal"
-              step="0.01"
-              min="0"
-              max="1"
-              value={typeWeight}
-              onChange={(e) => setTypeWeight(e.target.value)}
+              value={subjectDescription}
+              onChange={(e) => setSubjectDescription(e.target.value)}
               className="w-full"
             />
           </label>
 
-          {typeError ? <ErrorBanner message={typeError} /> : null}
+          <div>
+            <div className="text-sm font-medium mb-2">Components (name + weight 0–1)</div>
+            <div className="space-y-2">
+              {componentRows.map((row, i) => (
+                <div key={i} className="flex gap-2 items-end flex-wrap">
+                  <label className="field flex-1 min-w-[120px]">
+                    <span className="text-xs">Name</span>
+                    <input
+                      value={row.name}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        setComponentRows((prev) => prev.map((r, j) => (j === i ? { ...r, name: v } : r)))
+                      }}
+                      className="w-full"
+                    />
+                  </label>
+                  <label className="field w-28">
+                    <span className="text-xs">Weight</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0"
+                      max="1"
+                      value={row.weight}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        setComponentRows((prev) => prev.map((r, j) => (j === i ? { ...r, weight: v } : r)))
+                      }}
+                      className="w-full"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="btn btn-secondary text-sm mb-0.5"
+                    disabled={componentRows.length <= 1}
+                    onClick={() => setComponentRows((prev) => prev.filter((_, j) => j !== i))}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary text-sm mt-2"
+              onClick={() => setComponentRows((prev) => [...prev, { name: '', weight: '0.1' }])}
+            >
+              <Plus className="w-4 h-4 mr-1 inline" />
+              Add component
+            </button>
+          </div>
+
+          {subjectError ? <ErrorBanner message={subjectError} /> : null}
 
           <div className="flex gap-2 flex-wrap">
             <button
               type="button"
               className="btn btn-secondary"
-              disabled={typeBusy}
-              onClick={() => setTypeModalOpen(false)}
+              disabled={subjectBusy}
+              onClick={() => setSubjectModalOpen(false)}
             >
               Cancel
             </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={typeBusy}
-              onClick={submitCreateType}
-            >
-              {typeBusy ? 'Creating…' : 'Create'}
+            <button type="button" className="btn btn-primary" disabled={subjectBusy} onClick={submitSubject}>
+              {subjectBusy ? 'Saving…' : editingSubject ? 'Save' : 'Create'}
             </button>
           </div>
         </div>
@@ -811,4 +936,3 @@ export function GradeManagement() {
     </div>
   )
 }
-
