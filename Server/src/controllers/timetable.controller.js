@@ -3,7 +3,7 @@ import { Timetable } from '../models/Timetable.js'
 import { ClassRoom } from '../models/Class.js'
 import { ParentStudent } from '../models/ParentStudent.js'
 import { Student } from '../models/Student.js'
-import { findClassForTeacher } from '../utils/teacherClassScope.js'
+import { findClassForTeacher, findMainTeacherClass } from '../utils/teacherClassScope.js'
 
 const DAY_VALUES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/
@@ -114,10 +114,10 @@ export async function saveTimetable(req, res) {
       return badRequest(res, 'Invalid classId')
     }
 
-    // Teacher can save timetable only for classes they belong to (main or subject).
-    const cls = await findClassForTeacher(classId, req.user.id).lean()
+    // Only main teacher can save timetables.
+    const cls = await findMainTeacherClass(classId, req.user.id).lean()
     if (!cls) {
-      return res.status(403).json({ error: 'You do not belong to this class' })
+      return res.status(403).json({ error: 'Only main teacher can save timetable' })
     }
 
     let normalized

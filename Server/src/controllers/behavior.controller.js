@@ -4,6 +4,7 @@ import { ParentStudent } from '../models/ParentStudent.js'
 import {
   distinctClassIdsForTeacher,
   findClassForTeacher,
+  findMainTeacherClass,
 } from '../utils/teacherClassScope.js'
 
 function handleError(res, err) {
@@ -149,6 +150,12 @@ export async function createBehavior(req, res) {
       return res
         .status(404)
         .json({ error: 'Student not found or not in your classes' })
+    }
+
+    // Permission: only main teacher can create behavior records.
+    const cls = await findMainTeacherClass(owned.classId, req.user.id).lean()
+    if (!cls) {
+      return res.status(404).json({ error: 'Not your class' })
     }
 
     const type = mapIncomingType(req.body.type || req.body.behaviorType)

@@ -183,7 +183,7 @@ export async function getClassById(req, res) {
 export async function addStudentToClass(req, res) {
   try {
     const classId = req.params.id
-    const cls = await findClassForTeacher(classId, req.user.id)
+    const cls = await findMainTeacherClass(classId, req.user.id)
     if (!cls) {
       return res.status(404).json({ error: 'Class not found' })
     }
@@ -246,33 +246,144 @@ export async function addSubjectTeacher(req, res) {
       return res.status(404).json({ error: 'Class not found or not your class' })
     }
 
-    const { teacherUserId } = req.body
-    if (!teacherUserId || !mongoose.Types.ObjectId.isValid(teacherUserId)) {
-      return res.status(400).json({ error: 'teacherUserId is required' })
+    const { teacherEmail, teacherUserId } = req.body || {}
+
+    let targetUser = null
+    if (teacherEmail?.trim()) {
+      targetUser = await User.findOne({
+        email: String(teacherEmail).trim().toLowerCase(),
+        role: 'teacher',
+      }).lean()
+      if (!targetUser) {
+        return res.status(404).json({ error: 'No teacher account found for this email' })
+      }
+    } else {
+      if (!teacherUserId || !mongoose.Types.ObjectId.isValid(teacherUserId)) {
+        return res.status(400).json({ error: 'teacherEmail is required' })
+      }
+      targetUser = await User.findOne({
+        _id: teacherUserId,
+        role: 'teacher',
+      }).lean()
+      if (!targetUser) {
+        return res.status(400).json({ error: 'User is not a teacher' })
+      }
     }
-    if (String(teacherUserId) === String(cls.teacherId)) {
+
+    if (String(targetUser._id) === String(cls.teacherId)) {
       return res.status(400).json({ error: 'Main teacher is already assigned' })
     }
 
-    const user = await User.findOne({
-      _id: teacherUserId,
-      role: 'teacher',
-    }).lean()
-    if (!user) {
-      return res.status(400).json({ error: 'User is not a teacher' })
-    }
-
-    const existing = new Set(
+    const alreadySubjectTeachers = new Set(
       (cls.subjectTeachers || []).map((id) => String(id)),
     )
-    if (existing.has(String(teacherUserId))) {
-      return res.status(400).json({ error: 'Teacher already invited' })
+    if (alreadySubjectTeachers.has(String(targetUser._id))) {
+      return res.status(400).json({ error: 'Teacher already joined this class' })
     }
+
+    const existingInvites = new Set(
+      (cls.subjectTeacherInvites || [])
+        .filter((i) => i?.status === 'PENDING')
+        .map((i) => String(i.teacherId)),
+    )
+    if (existingInvites.has(String(targetUser._id))) {
+      return res.status(400).json({ error: 'Teacher already has a pending invite' })
+    }
+
+    await ClassRoom.findByIdAndUpdate(classId, {
+      $push: {
+        subjectTeacherInvites: {
+          teacherId: targetUser._id,
+          email: targetUser.email,
+          status: 'PENDING',
+          invitedBy: req.user.id,
+          createdAt: new Date(),
+        },
+      },
+    })
+
+    const updated = await ClassRoom.findById(classId)
+      .populate('teacherId', 'name email')
+      .populate('subjectTeachers', 'name email')
+      .lean()
+
+    const count = await Student.countDocuments({ classId })
+    res.json(serializeListClass(updated, count, req.user.id))
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
+export async function getPendingSubjectTeacherInvitations(req, res) {
+  try {
+    const teacherId = req.user.id
+    const classes = await ClassRoom.find({
+      'subjectTeacherInvites.teacherId': teacherId,
+      'subjectTeacherInvites.status': 'PENDING',
+    })
+      .populate('teacherId', 'name email')
+      .lean()
+
+    const payload = classes.map((c) => {
+      const invite = (c.subjectTeacherInvites || []).find(
+        (i) => String(i.teacherId) === String(teacherId) && i.status === 'PENDING',
+      )
+      return {
+        classId: c._id,
+        className: c.name,
+        invitedBy: c.teacherId
+          ? { _id: c.teacherId._id, name: c.teacherId.name, email: c.teacherId.email }
+          : null,
+        invite: invite
+          ? {
+              email: invite.email,
+              status: invite.status,
+              createdAt: invite.createdAt,
+            }
+          : null,
+      }
+    })
+
+    res.json({ invitations: payload })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
+export async function acceptPendingSubjectTeacherInvitation(req, res) {
+  try {
+    const { classId } = req.params
+    if (!mongoose.Types.ObjectId.isValid(classId)) {
+      return res.status(400).json({ error: 'Invalid classId' })
+    }
+
+    const cls = await ClassRoom.findById(classId).lean()
+    if (!cls) return res.status(404).json({ error: 'Class not found' })
+
+    const inviteIdx = (cls.subjectTeacherInvites || []).findIndex(
+      (i) => String(i.teacherId) === String(req.user.id) && i.status === 'PENDING',
+    )
+    if (inviteIdx === -1) {
+      return res.status(404).json({ error: 'No pending invitation found for this class' })
+    }
+
+    const invite = cls.subjectTeacherInvites[inviteIdx]
+    const targetTeacherId = invite.teacherId
 
     const updated = await ClassRoom.findByIdAndUpdate(
       classId,
-      { $addToSet: { subjectTeachers: teacherUserId } },
-      { new: true },
+      {
+        $addToSet: { subjectTeachers: targetTeacherId },
+        $set: {
+          'subjectTeacherInvites.$[elem].status': 'ACCEPTED',
+        },
+      },
+      {
+        new: true,
+        arrayFilters: [
+          { 'elem.teacherId': targetTeacherId, 'elem.status': 'PENDING' },
+        ],
+      },
     )
       .populate('teacherId', 'name email')
       .populate('subjectTeachers', 'name email')
@@ -280,6 +391,40 @@ export async function addSubjectTeacher(req, res) {
 
     const count = await Student.countDocuments({ classId })
     res.json(serializeListClass(updated, count, req.user.id))
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
+export async function declinePendingSubjectTeacherInvitation(req, res) {
+  try {
+    const { classId } = req.params
+    if (!mongoose.Types.ObjectId.isValid(classId)) {
+      return res.status(400).json({ error: 'Invalid classId' })
+    }
+
+    const updated = await ClassRoom.findOneAndUpdate(
+      {
+        _id: classId,
+        'subjectTeacherInvites.teacherId': req.user.id,
+        'subjectTeacherInvites.status': 'PENDING',
+      },
+      {
+        $set: {
+          'subjectTeacherInvites.$[elem].status': 'DECLINED',
+        },
+      },
+      {
+        arrayFilters: [{ 'elem.teacherId': req.user.id, 'elem.status': 'PENDING' }],
+        new: true,
+      },
+    ).lean()
+
+    if (!updated) {
+      return res.status(404).json({ error: 'No pending invitation found for this class' })
+    }
+
+    res.json({ ok: true })
   } catch (err) {
     handleError(res, err)
   }

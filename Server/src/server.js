@@ -6,6 +6,7 @@ import { connectDb } from './config/db.js'
 import { createSocketAuthMiddleware } from './socket/socketAuth.js'
 import { registerChatHandlers } from './socket/chat.handlers.js'
 import { registerGroupChatHandlers } from './socket/groupChat.handlers.js'
+import { startHomeworkReminderJob } from './jobs/reminder.job.js'
 
 const port = Number(process.env.PORT) || 3000
 
@@ -16,6 +17,8 @@ function parseOrigins() {
 
 try {
   await connectDb()
+
+  startHomeworkReminderJob()
 
   const httpServer = createServer(app)
   const io = new Server(httpServer, {

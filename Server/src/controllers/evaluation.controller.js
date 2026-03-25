@@ -1,7 +1,8 @@
 import { Evaluation } from '../models/Evaluation.js'
 import { Student } from '../models/Student.js'
 import { ParentStudent } from '../models/ParentStudent.js'
-import { findClassForTeacher } from '../utils/teacherClassScope.js'
+import { findMainTeacherClass } from '../utils/teacherClassScope.js'
+import { computeGradesAverageForStudent } from '../services/gradesAverage.service.js'
 
 function handleError(res, err) {
   if (err.name === 'ValidationError') {
@@ -16,14 +17,14 @@ function handleError(res, err) {
 async function assertStudentOwnedByTeacher(studentId, teacherUserId) {
   const student = await Student.findById(studentId).lean()
   if (!student) return null
-  const cls = await findClassForTeacher(student.classId, teacherUserId).lean()
+  const cls = await findMainTeacherClass(student.classId, teacherUserId).lean()
   if (!cls) return null
   return student
 }
 
 export async function createEvaluation(req, res) {
   try {
-    const { studentId, scores, comment, period } = req.body
+    const { studentId, comment, period } = req.body
     if (!studentId) {
       return res.status(400).json({ error: 'studentId is required' })
     }
@@ -32,11 +33,15 @@ export async function createEvaluation(req, res) {
       return res.status(404).json({ error: 'Student not found or not in your classes' })
     }
 
+    const { summaryScores } = await computeGradesAverageForStudent({
+      studentId,
+      classId: owned.classId,
+    })
+
     const doc = await Evaluation.create({
       studentId,
       teacherId: req.user.id,
-      scores:
-        scores && typeof scores === 'object' && !Array.isArray(scores) ? scores : {},
+      scores: summaryScores,
       comment: comment?.trim() || undefined,
       period: period?.trim() || undefined,
     })

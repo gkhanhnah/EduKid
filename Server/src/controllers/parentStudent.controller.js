@@ -1,7 +1,7 @@
 import { User } from '../models/User.js'
 import { ParentStudent } from '../models/ParentStudent.js'
 import { Student } from '../models/Student.js'
-import { findClassForTeacher } from '../utils/teacherClassScope.js'
+import { findMainTeacherClass } from '../utils/teacherClassScope.js'
 
 function handleError(res, err) {
   if (err.code === 11000) {
@@ -19,7 +19,7 @@ function handleError(res, err) {
 async function assertStudentOwnedByTeacher(studentId, teacherUserId) {
   const student = await Student.findById(studentId).lean()
   if (!student) return null
-  const cls = await findClassForTeacher(student.classId, teacherUserId).lean()
+  const cls = await findMainTeacherClass(student.classId, teacherUserId).lean()
   if (!cls) return null
   return student
 }

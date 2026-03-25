@@ -17,6 +17,9 @@ import aiRoutes from './routes/ai.routes.js'
 import timetableRoutes from './routes/timetable.routes.js'
 import chatRoutes from './routes/chat.routes.js'
 import gradeRoutes from './routes/grade.routes.js'
+import documentRoutes from './routes/document.routes.js'
+import homeworkRoutes from './routes/homework.routes.js'
+import attendanceRoutes from './routes/attendance.routes.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -43,5 +46,8 @@ app.use('/api/ai', aiRoutes)
 app.use('/api/timetable', timetableRoutes)
 app.use('/api/chat', chatRoutes)
 app.use('/api/grades', gradeRoutes)
+app.use('/api/documents', documentRoutes)
+app.use('/api/homeworks', homeworkRoutes)
+app.use('/api/attendance', attendanceRoutes)
 
 export default app

@@ -5,6 +5,7 @@ import {
   putGradeShow,
   getGradesForStudent,
   getGradesForClass,
+  getGradesAverage,
   createSubject,
   getSubjects,
   updateSubject,
@@ -25,6 +26,11 @@ router.get('/subjects', authorizeRole('teacher'), getSubjects)
 router.put('/subjects/:id', authorizeRole('teacher'), updateSubject)
 router.post('/subjects/:subjectId/grades', authorizeRole('teacher'), addGradeToSubject)
 router.get('/subjects/:subjectId/grades', authorizeRole('teacher'), getGradesBySubject)
+
+// ---------------------------
+// Grades averages (scoped by student access)
+// ---------------------------
+router.get('/average', authorizeRole('teacher', 'parent'), getGradesAverage)
 
 // ---------------------------
 // Grade rows (by grade id)

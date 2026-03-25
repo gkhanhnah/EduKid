@@ -7,6 +7,9 @@ import {
   addStudentToClass,
   addSubjectTeacher,
   updateClass,
+  getPendingSubjectTeacherInvitations,
+  acceptPendingSubjectTeacherInvitation,
+  declinePendingSubjectTeacherInvitation,
   deleteClass,
 } from '../controllers/class.controller.js'
 
@@ -19,6 +22,10 @@ router.post('/', createClass)
 // Literal paths before /:id to avoid "add-student" being parsed as id
 router.put('/:id/add-student', addStudentToClass)
 router.put('/:id/add-teacher', addSubjectTeacher)
+// Invitation endpoints (must be above "/:id" routes)
+router.get('/invitations', getPendingSubjectTeacherInvitations)
+router.post('/:classId/invitations/accept', acceptPendingSubjectTeacherInvitation)
+router.post('/:classId/invitations/decline', declinePendingSubjectTeacherInvitation)
 router.get('/:id', getClassById)
 router.patch('/:id', updateClass)
 router.delete('/:id', deleteClass)

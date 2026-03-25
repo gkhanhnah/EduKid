@@ -22,6 +22,13 @@ const gradeSchema = new mongoose.Schema({
   /** Must match subject.components[].name */
   componentName: { type: String, required: true, trim: true },
   score: { type: Number, required: true },
+  /**
+   * Connected academic pipeline:
+   * - HOMEWORK grades are auto-synced from a graded Homework (sourceId=homeworkId)
+   * - MANUAL grades are entered directly in GradeManagement
+   */
+  source: { type: String, enum: ['HOMEWORK', 'MANUAL'], default: 'MANUAL', index: true },
+  sourceId: { type: String, default: 'MANUAL', index: true },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -32,6 +39,11 @@ const gradeSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 })
 
-gradeSchema.index({ student: 1, class: 1, subject: 1, componentName: 1 }, { unique: true })
+// Prevent duplicates coming from the same source record.
+// (e.g. one homework => one grade row per student per subject component)
+gradeSchema.index(
+  { student: 1, class: 1, subject: 1, componentName: 1, source: 1, sourceId: 1 },
+  { unique: true },
+)
 
 export const Grade = mongoose.model('Grade', gradeSchema)

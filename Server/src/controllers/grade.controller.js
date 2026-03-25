@@ -3,7 +3,12 @@ import { Grade } from '../models/Grade.js'
 import { Subject } from '../models/GradeType.js'
 import { Student } from '../models/Student.js'
 import { ParentStudent } from '../models/ParentStudent.js'
-import { findClassForTeacher } from '../utils/teacherClassScope.js'
+import { findClassForTeacher, findMainTeacherClass } from '../utils/teacherClassScope.js'
+import { computeGradesAverageForStudent } from '../services/gradesAverage.service.js'
+
+const SOURCE_HOMEWORK = 'HOMEWORK'
+const SOURCE_MANUAL = 'MANUAL'
+const MANUAL_SOURCE_ID = 'MANUAL'
 
 function handleError(res, err) {
   if (err?.name === 'ValidationError') {
@@ -45,6 +50,25 @@ function calculateWeightedAverage({ grades = [] }) {
 
   if (weightSum <= 0) return { weightedAverage: null, weightSum: 0 }
   return { weightedAverage: weightedSum / weightSum, weightSum }
+}
+
+function reduceGradesToLatestByComponent(grades = []) {
+  const latest = new Map()
+  for (const g of grades) {
+    const studentId =
+      g?.student && typeof g.student === 'object' ? String(g.student._id) : String(g?.student ?? '')
+    const subjectId =
+      g?.subject && typeof g.subject === 'object' ? String(g.subject._id) : String(g?.subject ?? '')
+    const componentName = String(g?.componentName ?? '')
+
+    const key = `${studentId}:${subjectId}:${componentName}`
+    const nextTime = g?.createdAt ? new Date(g.createdAt).getTime() : -Infinity
+    const prev = latest.get(key)
+    const prevTime = prev?.createdAt ? new Date(prev.createdAt).getTime() : -Infinity
+    if (!prev || nextTime >= prevTime) latest.set(key, g)
+  }
+
+  return Array.from(latest.values())
 }
 
 function weightWarningFromTypeWeights({ typeWeightsSum }) {
@@ -134,7 +158,7 @@ export async function createSubject(req, res) {
     const compErr = validateComponents(components)
     if (compErr) return res.status(400).json({ error: compErr })
 
-    const cls = await findClassForTeacher(classId, req.user.id).lean()
+    const cls = await findMainTeacherClass(classId, req.user.id).lean()
     if (!cls) return res.status(404).json({ error: 'Class not found or not your class' })
 
     const normalized = components.map((c) => ({
@@ -187,7 +211,7 @@ export async function updateSubject(req, res) {
     const subj = await Subject.findById(id)
     if (!subj) return res.status(404).json({ error: 'Subject not found' })
 
-    const cls = await findClassForTeacher(subj.classId, req.user.id).lean()
+    const cls = await findMainTeacherClass(subj.classId, req.user.id).lean()
     if (!cls) return res.status(404).json({ error: 'Not your class' })
 
     const updates = {}
@@ -248,7 +272,7 @@ export async function addGradeToSubject(req, res) {
       return res.status(400).json({ error: 'score must be a valid number' })
     }
 
-    const cls = await findClassForTeacher(classId, req.user.id).lean()
+    const cls = await findMainTeacherClass(classId, req.user.id).lean()
     if (!cls) return res.status(404).json({ error: 'Class not found or not your class' })
 
     const subject = await Subject.findOne({ _id: subjectId, classId }).lean()
@@ -265,17 +289,47 @@ export async function addGradeToSubject(req, res) {
       return res.status(404).json({ error: 'Student not found in this class' })
     }
 
-    const existing = await Grade.findOne({
+    // Connected academic flow: grades coming from graded Homework should not be overridden manually.
+    const hasHomeworkGrade = await Grade.exists({
       student: studentId,
       class: classId,
       subject: subjectId,
       componentName: comp,
+      source: SOURCE_HOMEWORK,
     })
+    if (hasHomeworkGrade) {
+      return res
+        .status(409)
+        .json({ error: 'Cannot override homework-sourced grades for this component' })
+    }
+
+    // Backward compatibility: legacy grades might not have `source/sourceId` yet.
+    // Prefer the current MANUAL row; otherwise reuse any non-HOMEWORK row.
+    const existingManual = await Grade.findOne({
+      student: studentId,
+      class: classId,
+      subject: subjectId,
+      componentName: comp,
+      source: SOURCE_MANUAL,
+      sourceId: MANUAL_SOURCE_ID,
+    }).sort({ createdAt: -1 })
+
+    const existing =
+      existingManual ??
+      (await Grade.findOne({
+        student: studentId,
+        class: classId,
+        subject: subjectId,
+        componentName: comp,
+        source: { $ne: SOURCE_HOMEWORK },
+      }).sort({ createdAt: -1 }))
 
     let doc
     if (existing) {
       existing.score = s
       existing.createdBy = req.user.id
+      existing.source = SOURCE_MANUAL
+      existing.sourceId = MANUAL_SOURCE_ID
       if (showToParent !== undefined) existing.showToParent = Boolean(showToParent)
       await existing.save()
       doc = existing
@@ -288,6 +342,8 @@ export async function addGradeToSubject(req, res) {
         score: s,
         createdBy: req.user.id,
         showToParent: Boolean(showToParent),
+        source: SOURCE_MANUAL,
+        sourceId: MANUAL_SOURCE_ID,
       })
     }
 
@@ -326,14 +382,23 @@ export async function getGradesBySubject(req, res) {
       .sort({ student: 1, componentName: 1 })
       .lean()
 
-    let weightedAverage = null
-    if (studentId && grades.length) {
-      weightedAverage = calculateWeightedAverage({ grades }).weightedAverage
-    }
+    const effectiveGrades = reduceGradesToLatestByComponent(grades)
+      .slice()
+      .sort((a, b) => {
+        const an = a?.student?._id ?? a?.student ?? ''
+        const bn = b?.student?._id ?? b?.student ?? ''
+        const c = String(an).localeCompare(String(bn))
+        if (c !== 0) return c
+        return String(a?.componentName ?? '').localeCompare(String(b?.componentName ?? ''))
+      })
+
+    const weightedAverage = studentId && effectiveGrades.length
+      ? calculateWeightedAverage({ grades: effectiveGrades }).weightedAverage
+      : null
 
     res.json({
       subject,
-      grades,
+      grades: effectiveGrades,
       weightedAverage,
     })
   } catch (err) {
@@ -353,11 +418,16 @@ export async function putGrade(req, res) {
     const grade = await Grade.findById(id)
     if (!grade) return res.status(404).json({ error: 'Grade not found' })
 
-    const cls = await findClassForTeacher(grade.class, req.user.id).lean()
+    const cls = await findMainTeacherClass(grade.class, req.user.id).lean()
     if (!cls) return res.status(404).json({ error: 'Not your class' })
 
     const updates = {}
     if (score !== undefined) {
+      if (grade.source === SOURCE_HOMEWORK) {
+        return res.status(409).json({
+          error: 'This grade comes from a graded homework and cannot be overridden',
+        })
+      }
       const s = Number(score)
       if (!Number.isFinite(s)) return res.status(400).json({ error: 'score must be a valid number' })
       updates.score = s
@@ -389,7 +459,7 @@ export async function putGradeShow(req, res) {
     const grade = await Grade.findById(id)
     if (!grade) return res.status(404).json({ error: 'Grade not found' })
 
-    const cls = await findClassForTeacher(grade.class, req.user.id).lean()
+    const cls = await findMainTeacherClass(grade.class, req.user.id).lean()
     if (!cls) return res.status(404).json({ error: 'Not your class' })
 
     grade.showToParent = true
@@ -443,7 +513,8 @@ export async function getGradesForStudent(req, res) {
         .lean()
     }
 
-    const gradesWithAlias = grades.map(withTypeAlias)
+    const effectiveGrades = reduceGradesToLatestByComponent(grades)
+    const gradesWithAlias = effectiveGrades.map(withTypeAlias)
     const { weightedAverage, weightSum } = calculateWeightedAverage({ grades: gradesWithAlias })
 
     let subjectWeightWarnings = []
@@ -500,7 +571,8 @@ export async function getGradesForClass(req, res) {
     }
 
     const studentsPayload = students.map((s) => {
-      const grades = (byStudent.get(String(s._id)) ?? []).sort((a, b) => {
+      const gradesAll = byStudent.get(String(s._id)) ?? []
+      const grades = reduceGradesToLatestByComponent(gradesAll).sort((a, b) => {
         const an = a?.subject?.name ?? ''
         const bn = b?.subject?.name ?? ''
         const c = an.localeCompare(bn)
@@ -529,6 +601,36 @@ export async function getGradesForClass(req, res) {
       subjectWeightWarnings,
       students: studentsPayload,
     })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
+export async function getGradesAverage(req, res) {
+  try {
+    const studentId = req.query?.studentId
+    if (!studentId || !mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ error: 'studentId query is required' })
+    }
+
+    const role = req.user?.role
+    if (!role || (role !== 'teacher' && role !== 'parent')) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    let classId
+    if (role === 'teacher') {
+      const owned = await assertStudentAccessForTeacher(studentId, req.user.id)
+      if (!owned) return res.status(404).json({ error: 'Student not found' })
+      classId = owned.classId
+    } else {
+      const owned = await assertStudentAccessForParent(studentId, req.user.id)
+      if (!owned) return res.status(404).json({ error: 'Student not found' })
+      classId = owned.student.classId
+    }
+
+    const { subjects } = await computeGradesAverageForStudent({ studentId, classId })
+    res.json({ subjects })
   } catch (err) {
     handleError(res, err)
   }
