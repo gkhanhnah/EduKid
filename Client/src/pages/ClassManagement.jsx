@@ -7,6 +7,9 @@ import {
   deleteClass,
   addStudentToClass,
   addSubjectTeacherToClass,
+  getPendingSubjectTeacherInvitations,
+  acceptPendingSubjectTeacherInvitation,
+  declinePendingSubjectTeacherInvitation,
 } from '../services/classService.js'
 import {
   Plus,
@@ -26,6 +29,8 @@ export function ClassManagement() {
   const [grade, setGrade] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
+  const [pendingInvitations, setPendingInvitations] = useState([])
+  const [pendingLoading, setPendingLoading] = useState(true)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [quickClassId, setQuickClassId] = useState(null)
@@ -52,6 +57,23 @@ export function ClassManagement() {
   useEffect(() => {
     load()
   }, [load])
+
+  const loadPendingInvitations = useCallback(async () => {
+    setPendingLoading(true)
+    try {
+      const data = await getPendingSubjectTeacherInvitations()
+      setPendingInvitations(data?.invitations || [])
+    } catch {
+      // If server returns 403/404, treat as "no pending invitations" for UX purposes.
+      setPendingInvitations([])
+    } finally {
+      setPendingLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadPendingInvitations()
+  }, [loadPendingInvitations])
 
   async function handleCreate(e) {
     e.preventDefault()
@@ -124,13 +146,13 @@ export function ClassManagement() {
     e.preventDefault()
     setQuickErr('')
     if (!quickTeacherId.trim()) {
-      setQuickErr('Teacher user ID required')
+      setQuickErr('Teacher email required')
       return
     }
     setQuickBusy(true)
     try {
       await addSubjectTeacherToClass(quickClassId, {
-        teacherUserId: quickTeacherId.trim(),
+        teacherEmail: quickTeacherId.trim(),
       })
       setQuickTeacherId('')
       setQuickMode(null)
@@ -169,6 +191,65 @@ export function ClassManagement() {
                 Your classes (as main or subject teacher). Open a class for full detail.
               </p>
             </div>
+
+            {pendingLoading ? null : pendingInvitations.length ? (
+              <div className="mb-6 p-4 rounded-2xl border border-border bg-white">
+                <h2 className="font-medium mb-2">Pending invitations</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Accept invitations to join classes as a subject teacher.
+                </p>
+                <div className="space-y-3">
+                  {pendingInvitations.map((inv) => (
+                    <div
+                      key={`${inv.classId}-${inv.invite?.createdAt ?? 'na'}`}
+                      className="flex flex-wrap items-center justify-between gap-3"
+                    >
+                      <div className="min-w-[200px]">
+                        <p className="font-medium">{inv.className}</p>
+                        {inv.invite?.email ? (
+                          <p className="text-sm text-muted-foreground">
+                            Invited: {inv.invite.email}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await acceptPendingSubjectTeacherInvitation(inv.classId)
+                              await load()
+                              await loadPendingInvitations()
+                            } catch (e) {
+                              alert(e?.response?.data?.error || e?.message || 'Accept failed')
+                            }
+                          }}
+                          className="px-3 py-2 rounded-xl bg-primary text-white text-sm"
+                          disabled={quickBusy || pendingLoading}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await declinePendingSubjectTeacherInvitation(inv.classId)
+                              await loadPendingInvitations()
+                            } catch (e) {
+                              alert(e?.response?.data?.error || e?.message || 'Decline failed')
+                            }
+                          }}
+                          className="px-3 py-2 rounded-xl border border-border text-sm hover:bg-muted"
+                          disabled={pendingLoading}
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={() => {
@@ -396,12 +477,12 @@ export function ClassManagement() {
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
               <h3 className="font-semibold mb-2">Invite subject teacher</h3>
               <p className="text-xs text-muted-foreground mb-4">
-                Teacher&apos;s Mongo user ID (ObjectId).
+                Teacher&apos;s email (must be a registered teacher account).
               </p>
               {quickErr ? <p className="text-sm text-destructive mb-2">{quickErr}</p> : null}
               <form onSubmit={submitQuickTeacher} className="space-y-3">
                 <input
-                  placeholder="Teacher user ID"
+                  placeholder="Teacher email"
                   value={quickTeacherId}
                   onChange={(e) => setQuickTeacherId(e.target.value)}
                   className="w-full px-4 py-2 border rounded-xl font-mono text-sm"

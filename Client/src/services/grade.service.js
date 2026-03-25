@@ -49,3 +49,8 @@ export async function toggleShowGrade(id) {
   const { data } = await httpClient.put(`/grades/${id}/show`)
   return data
 }
+
+export async function getGradesAverage(studentId) {
+  const { data } = await httpClient.get('/grades/average', { params: { studentId } })
+  return data
+}

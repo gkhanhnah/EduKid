@@ -7,6 +7,9 @@ import {
   addStudentToClass as putAddStudent,
   addSubjectTeacherToClass as putAddTeacher,
   addParentToStudent as putAddParent,
+  getPendingSubjectTeacherInvitations as fetchPendingSubjectTeacherInvitations,
+  acceptPendingSubjectTeacherInvitation as acceptPendingSubjectTeacher,
+  declinePendingSubjectTeacherInvitation as declinePendingSubjectTeacher,
 } from './api.js'
 
 /** List classes for the current teacher (main or subject); includes counts from API. */
@@ -38,6 +41,21 @@ export async function addStudentToClass(classId, body) {
 /** Invite co-teacher { teacherUserId } — main teacher only */
 export async function addSubjectTeacherToClass(classId, body) {
   return putAddTeacher(classId, body)
+}
+
+/** Subject teacher: list pending invitations */
+export async function getPendingSubjectTeacherInvitations() {
+  return fetchPendingSubjectTeacherInvitations()
+}
+
+/** Subject teacher: accept invitation => join subjectTeachers */
+export async function acceptPendingSubjectTeacherInvitation(classId) {
+  return acceptPendingSubjectTeacher(classId)
+}
+
+/** Subject teacher: decline invitation */
+export async function declinePendingSubjectTeacherInvitation(classId) {
+  return declinePendingSubjectTeacher(classId)
 }
 
 /** Link parent { parentUserId | parentEmail, relationship? } */

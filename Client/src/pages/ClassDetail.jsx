@@ -15,6 +15,8 @@ import {
   Mail,
   GraduationCap,
   ClipboardCheck,
+  BookOpen,
+  CalendarDays,
 } from 'lucide-react'
 
 export function ClassDetail() {
@@ -79,12 +81,12 @@ export function ClassDetail() {
     e.preventDefault()
     setFormErr('')
     if (!teacherIdInput.trim()) {
-      setFormErr('Teacher user ID is required')
+      setFormErr('Teacher email is required')
       return
     }
     setBusy(true)
     try {
-      await addSubjectTeacherToClass(id, { teacherUserId: teacherIdInput.trim() })
+      await addSubjectTeacherToClass(id, { teacherEmail: teacherIdInput.trim() })
       setTeacherIdInput('')
       setTeacherOpen(false)
       load()
@@ -156,8 +158,8 @@ export function ClassDetail() {
                   <p className="text-muted-foreground mt-1">
                     Grade:{' '}
                     {detail.grade !== undefined &&
-                    detail.grade !== null &&
-                    detail.grade !== ''
+                      detail.grade !== null &&
+                      detail.grade !== ''
                       ? detail.grade
                       : '—'}
                   </p>
@@ -181,6 +183,20 @@ export function ClassDetail() {
                   >
                     <ClipboardCheck className="w-4 h-4 text-primary" />
                     Grades
+                  </Link>
+                  <Link
+                    to={`/classes/${id}/homework`}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm"
+                  >
+                    <BookOpen className="w-4 h-4 text-primary" />
+                    Homework
+                  </Link>
+                  <Link
+                    to={`/classes/${id}/attendance`}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm"
+                  >
+                    <CalendarDays className="w-4 h-4 text-primary" />
+                    Attendance
                   </Link>
                   <button
                     type="button"
@@ -215,25 +231,32 @@ export function ClassDetail() {
                     <Users className="w-5 h-5 text-primary" />
                     Main teacher
                   </h2>
-                  <p className="text-lg">{detail.mainTeacher?.name ?? '—'}</p>
+                  {/* Cập nhật font name cho Main teacher */}
+                  <p className="text-base font-medium text-foreground">
+                    {detail.mainTeacher?.name ?? '—'}
+                  </p>
                   {detail.mainTeacher?.email ? (
                     <p className="text-sm text-muted-foreground">
                       {detail.mainTeacher.email}
                     </p>
                   ) : null}
                 </div>
+
                 <div className="bg-white rounded-2xl border border-border p-6 shadow-sm">
                   <h2 className="font-medium mb-3">Subject teachers</h2>
                   {detail.subjectTeachers?.length ? (
-                    <ul className="space-y-2">
+                    <ul className="space-y-3">
                       {detail.subjectTeachers.map((t) => (
-                        <li key={t._id || t} className="text-sm">
-                          {typeof t === 'object' ? t.name : t}
+                        <li key={t._id || t}>
+                          {/* Cập nhật font name cho Subject teacher bằng với Main teacher */}
+                          <p className="text-base font-medium text-foreground">
+                            {typeof t === 'object' ? t.name : t}
+                          </p>
+                          {/* Tách email xuống dòng và set size giống hệt Main teacher */}
                           {typeof t === 'object' && t.email ? (
-                            <span className="text-muted-foreground">
-                              {' '}
-                              · {t.email}
-                            </span>
+                            <p className="text-sm text-muted-foreground">
+                              {t.email}
+                            </p>
                           ) : null}
                         </li>
                       ))}
@@ -350,15 +373,14 @@ export function ClassDetail() {
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
               <h3 className="font-semibold mb-2">Invite subject teacher</h3>
               <p className="text-xs text-muted-foreground mb-4">
-                Paste the other teacher&apos;s user ID (Mongo ObjectId from their profile
-                or database).
+                Enter the invited teacher&apos;s email address (registered teacher account).
               </p>
               {formErr ? (
                 <p className="text-sm text-destructive mb-3">{formErr}</p>
               ) : null}
               <form onSubmit={submitTeacher} className="space-y-3">
                 <input
-                  placeholder="Teacher user ID"
+                  placeholder="Teacher email"
                   value={teacherIdInput}
                   onChange={(e) => setTeacherIdInput(e.target.value)}
                   className="w-full px-4 py-2 border rounded-xl font-mono text-sm"

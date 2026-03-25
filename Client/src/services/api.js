@@ -179,16 +179,112 @@ export async function addSubjectTeacherToClass(classId, body) {
     const c = mockClassStore.find((x) => String(x._id) === String(classId))
     if (!c) throw new Error('Class not found')
     if (!c.subjectTeachers) c.subjectTeachers = []
-    c.subjectTeachers.push({
-      _id: body.teacherUserId || 'mock-sub',
-      name: 'Invited teacher',
-      email: 'teacher@mock',
+    if (!c.subjectTeacherInvites) c.subjectTeacherInvites = []
+
+    const teacherUserId = body.teacherUserId || 'mock-sub'
+    const teacherEmail = body.teacherEmail || 'teacher@mock'
+
+    // Do not add to subjectTeachers until ACCEPT.
+    c.subjectTeacherInvites.push({
+      _id: `inv${Date.now().toString(36)}`,
+      teacherId: teacherUserId,
+      email: teacherEmail,
+      status: 'PENDING',
+      invitedBy: getStoredUser()?.id || 'mock-inviter',
+      createdAt: new Date().toISOString(),
     })
-    c.subjectTeacherCount = c.subjectTeachers.length
-    c.teacherCount = 1 + c.subjectTeacherCount
     return structuredClone(c)
   }
   const { data } = await httpClient.put(`/classes/${classId}/add-teacher`, body)
+  return data
+}
+
+export async function getPendingSubjectTeacherInvitations() {
+  if (USE_MOCK) {
+    await initMockStores()
+    const user = getStoredUser()
+    const teacherId = user?.id
+    if (!teacherId) return { invitations: [] }
+
+    const invitations = mockClassStore
+      .map((c) => {
+        const invite = (c.subjectTeacherInvites || []).find(
+          (i) =>
+            String(i.teacherId) === String(teacherId) && i.status === 'PENDING',
+        )
+        if (!invite) return null
+        return { classId: c._id, className: c.name, invite }
+      })
+      .filter(Boolean)
+
+    return { invitations }
+  }
+
+  const { data } = await httpClient.get('/classes/invitations')
+  return data
+}
+
+export async function acceptPendingSubjectTeacherInvitation(classId) {
+  if (USE_MOCK) {
+    await initMockStores()
+    const user = getStoredUser()
+    const teacherId = user?.id
+    if (!teacherId) throw new Error('Not authenticated')
+
+    const c = mockClassStore.find((x) => String(x._id) === String(classId))
+    if (!c) throw new Error('Class not found')
+    if (!c.subjectTeachers) c.subjectTeachers = []
+    if (!c.subjectTeacherInvites) c.subjectTeacherInvites = []
+
+    const invite = c.subjectTeacherInvites.find(
+      (i) => String(i.teacherId) === String(teacherId) && i.status === 'PENDING',
+    )
+    if (!invite) throw new Error('No pending invitation')
+
+    invite.status = 'ACCEPTED'
+    const exists = c.subjectTeachers.some((t) => String(t._id) === String(teacherId))
+    if (!exists) {
+      c.subjectTeachers.push({
+        _id: teacherId,
+        name: user?.name || 'Invited teacher',
+        email: user?.email || invite.email,
+      })
+    }
+    c.subjectTeacherCount = c.subjectTeachers.length
+    c.teacherCount = 1 + c.subjectTeacherCount
+
+    return structuredClone(c)
+  }
+
+  const { data } = await httpClient.post(
+    `/classes/${classId}/invitations/accept`,
+  )
+  return data
+}
+
+export async function declinePendingSubjectTeacherInvitation(classId) {
+  if (USE_MOCK) {
+    await initMockStores()
+    const user = getStoredUser()
+    const teacherId = user?.id
+    if (!teacherId) throw new Error('Not authenticated')
+
+    const c = mockClassStore.find((x) => String(x._id) === String(classId))
+    if (!c) throw new Error('Class not found')
+    if (!c.subjectTeacherInvites) c.subjectTeacherInvites = []
+
+    const invite = c.subjectTeacherInvites.find(
+      (i) => String(i.teacherId) === String(teacherId) && i.status === 'PENDING',
+    )
+    if (!invite) throw new Error('No pending invitation')
+
+    invite.status = 'DECLINED'
+    return { ok: true }
+  }
+
+  const { data } = await httpClient.post(
+    `/classes/${classId}/invitations/decline`,
+  )
   return data
 }
 

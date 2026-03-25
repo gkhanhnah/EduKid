@@ -306,7 +306,7 @@ export function TeacherDashboard() {
                 <div className="ml-auto flex flex-wrap gap-2">
                   <Link
                     to="/ai-lesson"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-primary text-primary-foreground px-4 py-2 text-sm font-medium"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-primary/10 text-primary-foreground px-4 py-2 text-sm font-medium"
                   >
                     <Star className="w-4 h-4" />
                     AI lesson

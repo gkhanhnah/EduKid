@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
-  ArrowLeft,
   Award,
   Calendar,
   Clock,
@@ -10,10 +9,9 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth.js'
+import { useParentChild } from '../context/ParentChildContext.jsx'
 import { useBehaviors } from '../hooks/useBehaviors.js'
 import { useEvaluations } from '../hooks/useEvaluations.js'
-import { fetchParentDashboard } from '../services/dashboardService.js'
-
 function classLabel(student) {
   if (student?.classId && typeof student.classId === 'object') {
     return student.classId.name ?? '—'
@@ -212,8 +210,8 @@ function EvaluationList({ evaluations, loading, error }) {
               <p className="mt-2 text-foreground">{ev.comment}</p>
             ) : null}
             {ev.teacherId &&
-            typeof ev.teacherId === 'object' &&
-            ev.teacherId.name ? (
+              typeof ev.teacherId === 'object' &&
+              ev.teacherId.name ? (
               <p className="text-xs text-muted-foreground mt-2">
                 Teacher: {ev.teacherId.name}
               </p>
@@ -652,15 +650,51 @@ function evalScoresLine(scores) {
   return parts.map(([k, v]) => `${k}: ${v}`).join(' · ')
 }
 
-function ParentDashboardOverview({ summary, evaluations, recent }) {
-  const hasSummary = summary?.length > 0
-  const hasEval = evaluations?.length > 0
-  const hasRecent = recent?.length > 0
+function behaviorStudentId(b) {
+  if (b?.student && typeof b.student === 'object' && b.student._id != null) {
+    return String(b.student._id)
+  }
+  const sid = b?.studentId
+  if (sid && typeof sid === 'object' && sid._id != null) return String(sid._id)
+  if (sid != null) return String(sid)
+  return ''
+}
+
+function evaluationStudentId(ev) {
+  if (ev?.student && typeof ev.student === 'object' && ev.student._id != null) {
+    return String(ev.student._id)
+  }
+  return ''
+}
+
+function ParentDashboardOverview() {
+  const { overview, selectedStudentId, selectedStudent } = useParentChild()
+  const sid = selectedStudentId
+  const childName = selectedStudent?.name || 'this child'
+
+  const summaryRaw = overview.behaviorSummaryByChild || []
+  const evaluationsRaw = overview.latestEvaluations || []
+  const recentRaw = overview.recentBehaviors || []
+
+  const summary = sid
+    ? summaryRaw.filter((s) => String(s.studentId) === sid)
+    : summaryRaw
+  const evaluations = sid
+    ? evaluationsRaw.filter((ev) => evaluationStudentId(ev) === sid)
+    : evaluationsRaw
+  const recent = sid
+    ? recentRaw.filter((b) => behaviorStudentId(b) === sid)
+    : recentRaw
+
+  const hasSummary = summary.length > 0
+  const hasEval = evaluations.length > 0
+  const hasRecent = recent.length > 0
   if (!hasSummary && !hasEval && !hasRecent) {
     return (
       <div className="mb-8 rounded-3xl border border-dashed border-border bg-white/90 p-6 text-sm text-muted-foreground shadow-sm">
-        When teachers add behaviors and evaluations, a summary for all your children
-        will show here.
+        {sid
+          ? `When teachers add behaviors and evaluations for ${childName}, they will show here.`
+          : 'When teachers add behaviors and evaluations, a summary for your children will show here.'}
       </div>
     )
   }
@@ -672,16 +706,18 @@ function ParentDashboardOverview({ summary, evaluations, recent }) {
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-3xl p-6 shadow-lg border border-border"
+            className="bg-white rounded-3xl p-6 shadow-lg border border-border flex flex-col"
           >
             <div className="flex items-center gap-2 mb-4">
               <TrendingUp className="w-5 h-5 text-secondary" />
-              <h3 className="font-semibold text-lg">Behavior summary by child</h3>
+              <h3 className="font-semibold text-lg">
+                {sid ? `Behavior · ${childName}` : 'Behavior summary by child'}
+              </h3>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
-              Totals from all logged behaviors (good, active, sleepy, needs attention).
+              Totals from logged behaviors (good, active, sleepy, needs attention).
             </p>
-            <div className="space-y-3">
+            <div className="space-y-3 overflow-y-auto">
               {summary.map((s) => (
                 <div
                   key={s.studentId}
@@ -708,19 +744,24 @@ function ParentDashboardOverview({ summary, evaluations, recent }) {
           </motion.div>
         ) : null}
 
-        {hasEval ? (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="bg-white rounded-3xl p-6 shadow-lg border border-border"
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <Award className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold text-lg">Latest evaluations</h3>
-            </div>
+        {/* Bỏ điều kiện hasEval ở đây để Card luôn được render */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="bg-white rounded-3xl p-6 shadow-lg border border-border flex flex-col"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <Award className="w-5 h-5 text-primary" />
+            <h3 className="font-semibold text-lg">
+              {sid ? `Latest evaluations · ${childName}` : 'Latest evaluations'}
+            </h3>
+          </div>
+
+          {/* Kiểm tra điều kiện bên trong để render danh sách hoặc trạng thái trống */}
+          {hasEval && evaluations?.length > 0 ? (
             <ul className="space-y-3 max-h-72 overflow-y-auto pr-1">
-              {evaluations.slice(0, 8).map((ev) => {
+              {evaluations.slice(0, sid ? 12 : 8).map((ev) => {
                 const line = evalScoresLine(ev.scores)
                 return (
                   <li
@@ -753,8 +794,13 @@ function ParentDashboardOverview({ summary, evaluations, recent }) {
                 )
               })}
             </ul>
-          </motion.div>
-        ) : null}
+          ) : (
+            // Giao diện khi mảng rỗng hoặc không có evaluation
+            <div className="flex flex-1 items-center justify-center rounded-2xl border-2 border-dashed border-border/60 bg-muted/10 p-8 text-center text-sm text-muted-foreground">
+              No evaluations available yet.
+            </div>
+          )}
+        </motion.div>
       </div>
 
       {hasRecent ? (
@@ -766,10 +812,12 @@ function ParentDashboardOverview({ summary, evaluations, recent }) {
         >
           <div className="flex items-center gap-2 mb-4">
             <Clock className="w-5 h-5 text-primary" />
-            <h3 className="font-semibold text-lg">Recent activity (all children)</h3>
+            <h3 className="font-semibold text-lg">
+              {sid ? `Recent activity · ${childName}` : 'Recent activity (all children)'}
+            </h3>
           </div>
           <ul className="space-y-2 divide-y divide-border/60">
-            {recent.slice(0, 10).map((b) => (
+            {recent.slice(0, sid ? 15 : 10).map((b) => (
               <li key={b._id} className="pt-2 first:pt-0 text-sm flex flex-wrap gap-x-3 gap-y-1">
                 <span className="font-medium text-primary">
                   {b.behaviorType ?? b.type}
@@ -778,9 +826,9 @@ function ParentDashboardOverview({ summary, evaluations, recent }) {
                 <span className="text-xs text-muted-foreground ml-auto">
                   {b.createdAt
                     ? new Date(b.createdAt).toLocaleString(undefined, {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      })
+                      dateStyle: 'short',
+                      timeStyle: 'short',
+                    })
                     : ''}
                 </span>
                 {behaviorText(b) ? (
@@ -795,101 +843,38 @@ function ParentDashboardOverview({ summary, evaluations, recent }) {
   )
 }
 
-function ParentDashboardContent() {
-  const { user, logout } = useAuth()
-  const [children, setChildren] = useState([])
-  const [overview, setOverview] = useState({
-    behaviorSummaryByChild: [],
-    latestEvaluations: [],
-    recentBehaviors: [],
-  })
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [selectedIndex, setSelectedIndex] = useState(0)
+export function ParentDashboardHome() {
+  const { user } = useAuth()
+  const {
+    linkedChildren: children,
+    loading,
+    error,
+    reload,
+    selectedLink,
+    selectedStudent,
+    selectedIndex,
+  } = useParentChild()
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const data = await fetchParentDashboard()
-      const list = Array.isArray(data.children) ? data.children : []
-      setChildren(list)
-      setOverview({
-        behaviorSummaryByChild: data.behaviorSummaryByChild || [],
-        latestEvaluations: data.latestEvaluations || [],
-        recentBehaviors: data.recentBehaviors || [],
-      })
-      setSelectedIndex(0)
-    } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Could not load your children.')
-      setChildren([])
-      setOverview({
-        behaviorSummaryByChild: [],
-        latestEvaluations: [],
-        recentBehaviors: [],
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
-  const selectedLink =
-    children.length > 0 ? children[Math.min(selectedIndex, children.length - 1)] : null
-  const selectedStudent = selectedLink?.student
   const displayName = selectedStudent?.name || 'your child'
+  const clsId = selectedStudent ? classIdValue(selectedStudent) : null
+  const clsName = selectedStudent ? classLabel(selectedStudent) : '—'
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-full bg-background">
       <div className="bg-gradient-to-r from-primary to-secondary text-white p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <Link
-              to="/login"
-              className="inline-flex items-center gap-2 text-white/80 hover:text-white transition-all text-sm"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              Back to Login
-            </Link>
-            <button
-              type="button"
-              onClick={logout}
-              className="text-sm text-white/80 hover:text-white underline-offset-4 hover:underline"
-            >
-              Log out ({user?.name || user?.email || 'parent'})
-            </button>
-          </div>
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>
               <h1 className="text-[2rem] font-bold mb-2">Parent Dashboard</h1>
               <p className="text-[1.125rem] opacity-90">
                 Welcome back! Here&apos;s how {displayName} is doing
               </p>
-              {children.length > 1 ? (
-                <div className="flex flex-wrap gap-2 mt-4">
-                  {children.map((item, i) => {
-                    const name = item.student?.name || `Child ${i + 1}`
-                    const active = i === Math.min(selectedIndex, children.length - 1)
-                    return (
-                      <button
-                        key={item.linkId || item.student?._id || i}
-                        type="button"
-                        onClick={() => setSelectedIndex(i)}
-                        className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                          active
-                            ? 'bg-white text-primary shadow-md'
-                            : 'bg-white/15 text-white hover:bg-white/25'
-                        }`}
-                      >
-                        {name}
-                      </button>
-                    )
-                  })}
-                </div>
-              ) : null}
+              {/* {children.length > 1 ? (
+                <p className="mt-3 max-w-xl text-sm text-white/85">
+                  Use <span className="font-medium">Switch child</span> in the sidebar to
+                  see another student&apos;s overview, homework, and class links.
+                </p>
+              ) : null} */}
             </div>
             <div className="w-24 h-24 rounded-3xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-[3rem] shrink-0">
               <span aria-hidden>
@@ -914,7 +899,7 @@ function ParentDashboardContent() {
             <span>{error}</span>
             <button
               type="button"
-              onClick={load}
+              onClick={reload}
               className="text-sm underline shrink-0"
             >
               Try again
@@ -932,55 +917,37 @@ function ParentDashboardContent() {
           </div>
         ) : selectedStudent ? (
           <>
-            <div className="rounded-3xl border border-border bg-white p-6 shadow-lg mb-8">
-              <h3 className="font-semibold text-lg mb-4">Timetable by child</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {children.map((item, idx) => {
-                  const student = item.student
-                  const childName = student?.name || `Child ${idx + 1}`
-                  const clsName = classLabel(student)
-                  const clsId = classIdValue(student)
-                  return (
-                    <div
-                      key={item.linkId || student?._id || idx}
-                      className="rounded-2xl border border-border p-4 flex items-center justify-between gap-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{childName}</p>
-                        <p className="text-sm text-muted-foreground truncate">
-                          Class: {clsName}
-                        </p>
-                      </div>
-                      {clsId ? (
-                        <div className="shrink-0 flex flex-col items-end gap-1">
-                          <Link
-                            to={`/classes/${clsId}/timetable`}
-                            className="text-sm text-primary hover:underline"
-                          >
-                            View timetable
-                          </Link>
-                          <Link
-                            to={`/classes/${clsId}/chat`}
-                            className="text-sm text-primary hover:underline"
-                          >
-                            View chat
-                          </Link>
-                        </div>
-                      ) : (
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          No class
-                        </span>
-                      )}
-                    </div>
-                  )
-                })}
+            <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-border bg-white p-5 shadow-lg sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Class for {displayName}
+                </p>
+                <p className="mt-1 truncate text-lg font-semibold text-foreground">
+                  {clsName}
+                </p>
               </div>
+              {clsId ? (
+                <div className="flex flex-wrap gap-2 sm:shrink-0">
+                  <Link
+                    to={`/classes/${clsId}/timetable`}
+                    className="inline-flex items-center justify-center rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+                  >
+                    Timetable
+                  </Link>
+                  <Link
+                    to={`/classes/${clsId}/chat`}
+                    className="inline-flex items-center justify-center rounded-xl border border-border bg-primary/30 px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/70"
+                  >
+                    Class chat
+                  </Link>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No class assigned — timetable and chat are unavailable.
+                </p>
+              )}
             </div>
-            <ParentDashboardOverview
-              summary={overview.behaviorSummaryByChild}
-              evaluations={overview.latestEvaluations}
-              recent={overview.recentBehaviors}
-            />
+            <ParentDashboardOverview />
             <ChildDashboardPanels
               key={selectedStudent._id ?? selectedStudent.id ?? selectedIndex}
               student={selectedStudent}
@@ -999,12 +966,4 @@ function ParentDashboardContent() {
       </div>
     </div>
   )
-}
-
-export function ParentDashboard() {
-  const { user } = useAuth()
-  if (user?.role && user.role !== 'parent') {
-    return <Navigate to="/teacher" replace />
-  }
-  return <ParentDashboardContent />
 }

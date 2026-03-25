@@ -10,7 +10,10 @@ import { StudentManagement as StudentManagementPage } from './pages/StudentManag
 import { StudentDetail as StudentDetailPage } from './pages/StudentDetail.jsx'
 import { BehaviorHistory as BehaviorHistoryPage } from './pages/BehaviorHistory.jsx'
 import { TeacherDashboard } from './pages/TeacherDashboard.jsx'
-import { ParentDashboard } from './pages/ParentDashboard.jsx'
+import { ParentLayout } from './pages/ParentLayout.jsx'
+import { ParentDashboardHome } from './pages/ParentDashboard.jsx'
+import { ParentHomework } from './pages/ParentHomework.jsx'
+import { Attendance as AttendancePage } from './pages/Attendance.jsx'
 import { Evaluation as EvaluationPage } from './pages/Evaluation.jsx'
 import { BehaviorTracking as BehaviorTrackingPage } from './pages/BehaviorTracking.jsx'
 import { Games as GamesPage } from './pages/Games.jsx'
@@ -21,6 +24,8 @@ import { Login as LoginPage } from './pages/Login.jsx'
 import { Register as RegisterPage } from './pages/Register.jsx'
 import { GradeManagement as GradeManagementPage } from './pages/GradeManagement.jsx'
 import { StudentGradeView as StudentGradeViewPage } from './pages/StudentGradeView.jsx'
+import { Documents as DocumentsPage } from './pages/Documents.jsx'
+import { HomeworkManagement as HomeworkManagementPage } from './pages/HomeworkManagement.jsx'
 import { RedirectHome } from './components/RedirectHome.jsx'
 
 export default function App() {
@@ -39,7 +44,13 @@ export default function App() {
             <Route path="classes/:classId/timetable" element={<TimetablePage />} />
             <Route path="classes/:classId/chat" element={<GroupChatPage />} />
             <Route path="classes/:classId/grades" element={<GradeManagementPage />} />
-            <Route path="parent-dashboard" element={<ParentDashboard />} />
+            <Route path="classes/:classId/homework" element={<HomeworkManagementPage />} />
+            <Route path="classes/:classId/attendance" element={<AttendancePage />} />
+            <Route path="parent-dashboard" element={<ParentLayout />}>
+              <Route index element={<ParentDashboardHome />} />
+              <Route path="homework" element={<ParentHomework />} />
+              <Route path="attendance" element={<AttendancePage />} />
+            </Route>
             <Route path="parent" element={<Navigate to="/parent-dashboard" replace />} />
             <Route path="behavior" element={<BehaviorTrackingPage />} />
             <Route path="behavior-history" element={<BehaviorHistoryPage />} />
@@ -47,6 +58,7 @@ export default function App() {
             <Route path="games/:gameId" element={<GamePlayPage />} />
             <Route path="ai-lesson" element={<AILessonGeneratorPage />} />
             <Route path="messages" element={<MessagesPage />} />
+            <Route path="documents" element={<DocumentsPage />} />
             <Route path="students/:id" element={<StudentDetailPage />} />
             <Route path="students/:studentId/grades" element={<StudentGradeViewPage />} />
             <Route path="students" element={<StudentManagementPage />} />

@@ -32,6 +32,7 @@ export function Timetable() {
   const isTeacher = user?.role === 'teacher'
   const isParent = user?.role === 'parent'
   const backHref = isParent ? '/parent-dashboard' : `/classes/${classId}`
+  const userId = user?.id
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -48,14 +49,18 @@ export function Timetable() {
       const data = await getTimetable(classId)
       setDetail(data)
       setScheduleByDay(mapScheduleByDay(data?.schedule || []))
-      setEditing(Boolean(isTeacher && (!data?.schedule || data.schedule.length === 0)))
+      const mainTeacherId =
+        data?.class?.teacherId?._id ?? data?.class?.teacherId ?? null
+      const isMainTeacher =
+        Boolean(isTeacher && userId && mainTeacherId && String(mainTeacherId) === String(userId))
+      setEditing(Boolean(isMainTeacher && (!data?.schedule || data.schedule.length === 0)))
     } catch (e) {
       setDetail(null)
       setError(e?.response?.data?.error || e?.message || 'Failed to load timetable')
     } finally {
       setLoading(false)
     }
-  }, [classId, isTeacher])
+  }, [classId, isTeacher, userId])
 
   useEffect(() => {
     load()
@@ -77,6 +82,13 @@ export function Timetable() {
     return [...byId.values()]
   }, [detail])
 
+  const canEdit = useMemo(() => {
+    if (!detail?.class?.teacherId) return false
+    if (!isTeacher || !userId) return false
+    const mainTeacherId = detail.class.teacherId?._id ?? detail.class.teacherId
+    return Boolean(mainTeacherId && String(mainTeacherId) === String(userId))
+  }, [detail, isTeacher, userId])
+
   const maxPeriods = useMemo(() => {
     return Math.max(
       1,
@@ -84,7 +96,7 @@ export function Timetable() {
     )
   }, [scheduleByDay])
   // In edit mode, always render one extra column so each day can add more periods.
-  const displayColumns = editing && isTeacher ? maxPeriods + 1 : maxPeriods
+  const displayColumns = editing && canEdit ? maxPeriods + 1 : maxPeriods
 
   function setDayPeriods(day, periods) {
     setScheduleByDay((prev) => ({ ...prev, [day]: [...periods].sort(sortByStart) }))
@@ -112,7 +124,7 @@ export function Timetable() {
   }
 
   async function handleSave() {
-    if (!isTeacher) return
+    if (!canEdit) return
     setFormError('')
     setSaving(true)
     try {
@@ -176,7 +188,7 @@ export function Timetable() {
                       : ''}
                   </p>
                 </div>
-                {isTeacher ? (
+                {canEdit ? (
                   <div className="flex gap-2">
                     {!editing ? (
                       <button
@@ -241,7 +253,7 @@ export function Timetable() {
                             return (
                               <td key={`${day}-${periodIdx}`} className="p-4 border-l border-border">
                                 {!period ? (
-                                  editing && isTeacher ? (
+                                  editing && canEdit ? (
                                     <button
                                       type="button"
                                       className="inline-flex items-center gap-1 text-primary hover:underline"
@@ -253,7 +265,7 @@ export function Timetable() {
                                   ) : (
                                     <span className="text-muted-foreground">—</span>
                                   )
-                                ) : editing && isTeacher ? (
+                                ) : editing && canEdit ? (
                                   <div className="space-y-2">
                                     <input
                                       value={period.subject || ''}

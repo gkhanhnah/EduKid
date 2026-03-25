@@ -15,6 +15,7 @@ import {
   getSubjects,
   getGradesBySubject,
 } from '../services/grade.service.js'
+import { getClassById } from '../services/api.js'
 
 function resolveWeightFromGrade(g, fallbackSubject) {
   const sub = (g && g.subject) || fallbackSubject
@@ -84,9 +85,10 @@ export function GradeManagement() {
   const { user } = useAuth()
   const { classId } = useParams()
 
-  if (user?.role && user.role !== 'teacher') {
-    return <Navigate to="/parent-dashboard" replace />
-  }
+  const [classDetail, setClassDetail] = useState(null)
+  const [classDetailLoading, setClassDetailLoading] = useState(true)
+  const [classDetailError, setClassDetailError] = useState('')
+  const canManageGrades = !classDetailLoading && !classDetailError && Boolean(classDetail?.isMainTeacher)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -111,11 +113,36 @@ export function GradeManagement() {
     studentId: null,
     gradeId: null,
     initialComponentName: null,
+    scoreLocked: false,
   })
   const [modalDraftScore, setModalDraftScore] = useState('')
   const [modalDraftShowToParent, setModalDraftShowToParent] = useState(false)
   const [modalBusy, setModalBusy] = useState(false)
   const [modalError, setModalError] = useState('')
+
+  useEffect(() => {
+    if (!classId) return
+    let cancelled = false
+    async function loadClass() {
+      setClassDetailLoading(true)
+      setClassDetailError('')
+      try {
+        const d = await getClassById(classId)
+        if (cancelled) return
+        setClassDetail(d ?? null)
+      } catch (e) {
+        if (cancelled) return
+        setClassDetailError(e?.response?.data?.error || e?.message || 'Could not load class')
+        setClassDetail(null)
+      } finally {
+        if (!cancelled) setClassDetailLoading(false)
+      }
+    }
+    loadClass()
+    return () => {
+      cancelled = true
+    }
+  }, [classId])
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -183,15 +210,17 @@ export function GradeManagement() {
   }, [subjectGradesData?.grades])
 
   const openCreateSubject = useCallback(() => {
+    if (!canManageGrades) return
     setEditingSubject(null)
     setSubjectName('')
     setSubjectDescription('')
     setComponentRows(defaultComponentRows())
     setSubjectError('')
     setSubjectModalOpen(true)
-  }, [])
+  }, [canManageGrades])
 
   const openEditSubject = useCallback((sub) => {
+    if (!canManageGrades) return
     setEditingSubject(sub)
     setSubjectName(sub.name ?? '')
     setSubjectDescription(sub.description ?? '')
@@ -203,7 +232,7 @@ export function GradeManagement() {
     )
     setSubjectError('')
     setSubjectModalOpen(true)
-  }, [])
+  }, [canManageGrades])
 
   const submitSubject = useCallback(async () => {
     setSubjectBusy(true)
@@ -262,6 +291,7 @@ export function GradeManagement() {
 
   const openAddGrade = useCallback(
     (studentId) => {
+      if (!canManageGrades) return
       const components = activeSubject?.components ?? []
       const studentGrades = gradesByStudentId.get(String(studentId)) ?? []
       const used = new Set(studentGrades.map((g) => g.componentName))
@@ -276,12 +306,14 @@ export function GradeManagement() {
         studentId,
         gradeId: null,
         initialComponentName: firstMissing?.name ?? null,
+        scoreLocked: false,
       })
     },
-    [activeSubject?.components, gradesByStudentId],
+    [activeSubject?.components, canManageGrades, gradesByStudentId],
   )
 
   const openEditGrade = useCallback((grade) => {
+    if (!canManageGrades) return
     setModalDraftScore(String(grade?.score ?? ''))
     setModalDraftShowToParent(Boolean(grade?.showToParent))
     setModalError('')
@@ -291,8 +323,9 @@ export function GradeManagement() {
       studentId: grade?.student?._id ? String(grade.student._id) : String(grade?.student ?? ''),
       gradeId: grade?._id ?? null,
       initialComponentName: grade?.componentName ?? null,
+      scoreLocked: grade?.source === 'HOMEWORK',
     })
-  }, [])
+  }, [canManageGrades])
 
   const previewWeightedAverage = useMemo(() => {
     if (!gradeModal.open || !classData || !activeSubject) return null
@@ -349,9 +382,9 @@ export function GradeManagement() {
       const componentName = gradeModal.initialComponentName
       const score = Number(modalDraftScore)
       if (!studentId || !componentName) throw new Error('Student and component are required.')
-      if (!Number.isFinite(score)) throw new Error('Score must be a valid number.')
 
       if (mode === 'add') {
+        if (!Number.isFinite(score)) throw new Error('Score must be a valid number.')
         await addGradeToSubject(selectedSubjectId, {
           studentId,
           classId,
@@ -360,10 +393,17 @@ export function GradeManagement() {
           showToParent: modalDraftShowToParent,
         })
       } else {
-        await updateGrade(gradeModal.gradeId, {
-          score,
-          showToParent: modalDraftShowToParent,
-        })
+        if (gradeModal.scoreLocked) {
+          await updateGrade(gradeModal.gradeId, {
+            showToParent: modalDraftShowToParent,
+          })
+        } else {
+          if (!Number.isFinite(score)) throw new Error('Score must be a valid number.')
+          await updateGrade(gradeModal.gradeId, {
+            score,
+            showToParent: modalDraftShowToParent,
+          })
+        }
       }
 
       setGradeModal((p) => ({ ...p, open: false }))
@@ -379,6 +419,7 @@ export function GradeManagement() {
     gradeModal.gradeId,
     gradeModal.initialComponentName,
     gradeModal.mode,
+    gradeModal.scoreLocked,
     gradeModal.open,
     gradeModal.studentId,
     loadAll,
@@ -390,6 +431,7 @@ export function GradeManagement() {
 
   const toggleStudentShowToParents = useCallback(
     async (studentId) => {
+      if (!canManageGrades) return
       const grades = gradesByStudentId.get(String(studentId)) ?? []
       if (!grades.length) return
 
@@ -410,7 +452,7 @@ export function GradeManagement() {
         setError(e?.response?.data?.error || e?.message || 'Could not update visibility')
       }
     },
-    [gradesByStudentId, loadAll, loadSubjectGrades, selectedSubjectId],
+    [canManageGrades, gradesByStudentId, loadAll, loadSubjectGrades, selectedSubjectId],
   )
 
   const displayedStudents = useMemo(() => {
@@ -448,6 +490,10 @@ export function GradeManagement() {
     if (diff <= EPS) return null
     return { componentsWeightSum: componentsSumForActiveSubject, expected: 1, diff }
   }, [componentsSumForActiveSubject])
+
+  if (user?.role && user.role !== 'teacher') {
+    return <Navigate to="/parent-dashboard" replace />
+  }
 
   if (loading && !classData) {
     return (
@@ -502,10 +548,12 @@ export function GradeManagement() {
                     Each subject has components (e.g. Midterm, Final) with weights for the class average.
                   </p>
                 </div>
-                <button type="button" className="btn btn-primary" onClick={openCreateSubject}>
-                  <Plus className="w-4 h-4 mr-1" />
-                  Add subject
-                </button>
+                {canManageGrades ? (
+                  <button type="button" className="btn btn-primary" onClick={openCreateSubject}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add subject
+                  </button>
+                ) : null}
               </div>
 
               {subjectWeightWarnings.length ? (
@@ -626,33 +674,38 @@ export function GradeManagement() {
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap">
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={() => openAddGrade(s.student._id)}
-                          disabled={!comps.length}
-                        >
-                          <Plus className="w-4 h-4 mr-1" />
-                          Add grade
-                        </button>
-                        <button
-                          type="button"
-                          className={`btn ${anyVisible ? 'btn-secondary' : 'btn-primary'}`}
-                          disabled={!totalCount || loading || subjectGradesLoading}
-                          onClick={() => toggleStudentShowToParents(s.student._id)}
-                        >
-                          {anyVisible ? (
-                            <>
-                              <EyeOff className="w-4 h-4 mr-1" />
-                              Hide
-                            </>
-                          ) : (
-                            <>
-                              <Eye className="w-4 h-4 mr-1" />
-                              Show
-                            </>
-                          )}
-                        </button>
+                        {canManageGrades ? (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => openAddGrade(s.student._id)}
+                            disabled={!comps.length}
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Add grade
+                          </button>
+                        ) : null}
+
+                        {canManageGrades ? (
+                          <button
+                            type="button"
+                            className={`btn ${anyVisible ? 'btn-secondary' : 'btn-primary'}`}
+                            disabled={!totalCount || loading || subjectGradesLoading}
+                            onClick={() => toggleStudentShowToParents(s.student._id)}
+                          >
+                            {anyVisible ? (
+                              <>
+                                <EyeOff className="w-4 h-4 mr-1" />
+                                Hide
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="w-4 h-4 mr-1" />
+                                Show
+                              </>
+                            )}
+                          </button>
+                        ) : null}
                       </div>
                     </div>
 
@@ -696,14 +749,16 @@ export function GradeManagement() {
                                       {g ? formatNumberOrDash(g.score, 0) : '—'}
                                     </div>
                                     {g ? (
-                                      <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => openEditGrade(g)}
-                                      >
-                                        <Pencil className="w-4 h-4" />
-                                      </button>
-                                    ) : (
+                                      canManageGrades ? (
+                                        <button
+                                          type="button"
+                                          className="btn btn-secondary"
+                                          onClick={() => openEditGrade(g)}
+                                        >
+                                          <Pencil className="w-4 h-4" />
+                                        </button>
+                                      ) : null
+                                    ) : canManageGrades ? (
                                       <button
                                         type="button"
                                         className="btn btn-secondary"
@@ -722,7 +777,7 @@ export function GradeManagement() {
                                       >
                                         <Plus className="w-4 h-4" />
                                       </button>
-                                    )}
+                                    ) : null}
                                   </div>
                                 </div>
                               )
@@ -764,7 +819,7 @@ export function GradeManagement() {
                   setGradeModal((p) => ({ ...p, initialComponentName: v }))
                 }}
                 className="w-full rounded-xl border border-border p-2"
-                disabled={gradeModal.mode === 'edit'}
+                disabled={!canManageGrades || gradeModal.mode === 'edit'}
               >
                 {(activeSubject?.components ?? []).map((c) => (
                   <option key={c.name} value={c.name}>
@@ -787,6 +842,7 @@ export function GradeManagement() {
               onChange={(e) => setModalDraftScore(e.target.value)}
               placeholder="e.g. 85"
               className="w-full"
+              disabled={modalBusy || !canManageGrades || (gradeModal.mode === 'edit' && gradeModal.scoreLocked)}
             />
           </label>
 
@@ -795,6 +851,7 @@ export function GradeManagement() {
               type="checkbox"
               checked={modalDraftShowToParent}
               onChange={(e) => setModalDraftShowToParent(e.target.checked)}
+              disabled={!canManageGrades}
             />
             <div className="text-sm">
               <div className="font-medium">Visible to parents</div>
@@ -828,7 +885,7 @@ export function GradeManagement() {
               type="button"
               className="btn btn-primary"
               onClick={submitGrade}
-              disabled={modalBusy || !activeComponentName}
+              disabled={modalBusy || !canManageGrades || !activeComponentName}
             >
               {modalBusy ? 'Saving…' : gradeModal.mode === 'add' ? 'Add' : 'Save'}
             </button>

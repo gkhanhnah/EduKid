@@ -9,6 +9,8 @@ import {
   MessageCircle,
   LogOut,
   ClipboardCheck,
+  FolderOpen,
+  BookOpen,
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth.js'
 
@@ -20,17 +22,35 @@ export function Sidebar() {
     { path: '/teacher', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/classes', icon: School, label: 'Classes' },
     { path: '/students', icon: Users, label: 'Students' },
+    { path: '/documents', icon: FolderOpen, label: 'Documents' },
     { path: '/evaluations', icon: ClipboardCheck, label: 'Evaluations' },
     { path: '/behavior', icon: Activity, label: 'Behavior Tracking' },
     { path: '/behavior-history', icon: Activity, label: 'Behavior History' },
     { path: '/games', icon: Gamepad2, label: 'Games' },
     { path: '/ai-lesson', icon: Sparkles, label: 'AI Lesson Generator' },
     { path: '/messages', icon: MessageCircle, label: 'Messages' },
+    
   ]
 
   const parentNavItems = [
-    { path: '/parent-dashboard', icon: LayoutDashboard, label: 'My children' },
-    { path: '/messages', icon: MessageCircle, label: 'Messages' },
+    {
+      path: '/parent-dashboard',
+      icon: LayoutDashboard,
+      label: 'My children',
+      isActive: (p) => p === '/parent-dashboard' || p === '/parent',
+    },
+    {
+      path: '/parent-dashboard/homework',
+      icon: BookOpen,
+      label: 'Homework',
+      isActive: (p) => p.startsWith('/parent-dashboard/homework'),
+    },
+    {
+      path: '/messages',
+      icon: MessageCircle,
+      label: 'Messages',
+      isActive: (p) => p.startsWith('/messages'),
+    },
   ]
 
   const navItems = user?.role === 'parent' ? parentNavItems : teacherNavItems
@@ -47,14 +67,16 @@ export function Sidebar() {
       <nav className="flex-1 p-4 space-y-2 overflow-auto">
         {navItems.map((item) => {
           const Icon = item.icon
-          const isActive = location.pathname === item.path
+          const isActive = item.isActive
+            ? item.isActive(location.pathname)
+            : location.pathname === item.path
           return (
             <Link
               key={item.path}
               to={item.path}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                 isActive
-                  ? 'bg-primary text-white shadow-lg'
+                  ? 'bg-primary/10 text-white shadow-lg'
                   : 'text-foreground hover:bg-accent'
               }`}
             >

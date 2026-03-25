@@ -1,16 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.js'
 import { useStudents } from '../hooks/useStudents.js'
 import { useEvaluations } from '../hooks/useEvaluations.js'
 import { submitEvaluation } from '../services/evaluationService.js'
+import { getGradesAverage } from '../services/grade.service.js'
+import { getClasses } from '../services/api.js'
 import { Sidebar } from '../components/Sidebar.jsx'
 import { ClipboardCheck } from 'lucide-react'
 
 const EMPTY_FORM = {
   studentId: '',
-  math: '',
-  reading: '',
   comment: '',
   period: '',
 }
@@ -31,6 +31,14 @@ function studentName(ev) {
   return '—'
 }
 
+function toKey(str) {
+  return String(str ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
 export function Evaluation() {
   const { user } = useAuth()
   const { students, loading: studentsLoading } = useStudents()
@@ -39,25 +47,86 @@ export function Evaluation() {
     studentId: filterStudentId || undefined,
   })
   const [form, setForm] = useState(EMPTY_FORM)
+  const [averagesLoading, setAveragesLoading] = useState(false)
+  const [averagesError, setAveragesError] = useState('')
+  const [averagesSubjects, setAveragesSubjects] = useState([])
+  const [mainClassIds, setMainClassIds] = useState([])
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
 
-  if (user?.role !== 'teacher') {
-    return <Navigate to="/parent-dashboard" replace />
-  }
+  const selectedStudent = students.find((s) => String(s._id) === String(form.studentId))
+  const selectedClassId = String(selectedStudent?.classId?._id ?? selectedStudent?.classId ?? '')
+  const canManageEvaluations = Boolean(selectedClassId && mainClassIds.includes(selectedClassId))
 
   function handleFormChange(e) {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
   }
 
+  useEffect(() => {
+    let cancelled = false
+    async function loadMainClasses() {
+      if (user?.role !== 'teacher') return
+      try {
+        const d = await getClasses()
+        if (cancelled) return
+        const ids = Array.isArray(d)
+          ? d.filter((c) => c?.isMainTeacher).map((c) => String(c._id))
+          : []
+        setMainClassIds(ids)
+      } catch {
+        // If the class list fails, keep the UI read-only.
+        if (cancelled) return
+        setMainClassIds([])
+      }
+    }
+    loadMainClasses()
+    return () => {
+      cancelled = true
+    }
+  }, [user?.role])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadAverages() {
+      if (!form.studentId) {
+        setAveragesSubjects([])
+        return
+      }
+      setAveragesLoading(true)
+      setAveragesError('')
+      try {
+        const d = await getGradesAverage(form.studentId)
+        if (cancelled) return
+        setAveragesSubjects(d?.subjects ?? [])
+      } catch (e) {
+        if (cancelled) return
+        setAveragesError(e?.response?.data?.error || e?.message || 'Could not load averages')
+        setAveragesSubjects([])
+      } finally {
+        if (!cancelled) setAveragesLoading(false)
+      }
+    }
+
+    loadAverages()
+    return () => {
+      cancelled = true
+    }
+  }, [form.studentId])
+
   async function handleSubmit(e) {
     e.preventDefault()
     setFormError('')
     setSuccess(false)
+
     if (!form.studentId) {
       setFormError('Select a student.')
+      return
+    }
+
+    if (!canManageEvaluations) {
+      setFormError('Read-only: only Main teacher can submit evaluations for this student.')
       return
     }
     if (!form.period?.trim()) {
@@ -66,13 +135,14 @@ export function Evaluation() {
     }
     setSubmitting(true)
     try {
-      const scores = {}
-      if (form.math !== '' && !Number.isNaN(Number(form.math))) {
-        scores.math = Number(form.math)
-      }
-      if (form.reading !== '' && !Number.isNaN(Number(form.reading))) {
-        scores.reading = Number(form.reading)
-      }
+      const scores =
+        averagesSubjects && Array.isArray(averagesSubjects)
+          ? averagesSubjects.reduce((acc, s) => {
+              acc[toKey(s?.subjectName)] = s?.averageScore
+              return acc
+            }, {})
+          : {}
+
       await submitEvaluation({
         studentId: form.studentId,
         scores,
@@ -92,6 +162,10 @@ export function Evaluation() {
     }
   }
 
+  if (user?.role !== 'teacher') {
+    return <Navigate to="/parent-dashboard" replace />
+  }
+
   return (
     <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
@@ -107,93 +181,96 @@ export function Evaluation() {
 
           <section className="bg-white rounded-3xl border border-border shadow-lg p-6 mb-8">
             <h2 className="text-lg font-medium mb-4">New evaluation</h2>
-            {success ? (
-              <p className="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-2">
-                Evaluation saved.
+            {canManageEvaluations ? (
+              <>
+                {success ? (
+                  <p className="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-2">
+                    Evaluation saved.
+                  </p>
+                ) : null}
+                {formError ? (
+                  <p className="mb-4 text-sm text-destructive" role="alert">
+                    {formError}
+                  </p>
+                ) : null}
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Student *</label>
+                    <select
+                      name="studentId"
+                      value={form.studentId}
+                      onChange={handleFormChange}
+                      disabled={studentsLoading}
+                      className="w-full px-4 py-3 border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Select student…</option>
+                      {students.map((s) => (
+                        <option key={s._id} value={s._id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="rounded-3xl border border-border bg-white p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <h2 className="text-sm font-medium">Averages (read-only)</h2>
+                      {averagesLoading ? (
+                        <span className="text-xs text-muted-foreground">Loading…</span>
+                      ) : null}
+                    </div>
+                    {averagesError ? (
+                      <p className="text-sm text-destructive">{averagesError}</p>
+                    ) : averagesSubjects.length ? (
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        {averagesSubjects.map((s) => (
+                          <div key={s.subjectName}>
+                            <div className="text-sm text-muted-foreground">{s.subjectName}</div>
+                            <div className="text-lg font-semibold text-primary tabular-nums">
+                              {s.averageScore == null ? '—' : Number(s.averageScore).toFixed(2)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No averages yet.</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Period *</label>
+                    <input
+                      name="period"
+                      value={form.period}
+                      onChange={handleFormChange}
+                      className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="e.g. Week 3, Q1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Comment</label>
+                    <textarea
+                      name="comment"
+                      value={form.comment}
+                      onChange={handleFormChange}
+                      rows={3}
+                      className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+                      placeholder="Notes for parents…"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="bg-primary text-white px-6 py-3 rounded-xl disabled:opacity-60"
+                  >
+                    {submitting ? 'Saving…' : 'Submit evaluation'}
+                  </button>
+                </form>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Read-only: only Main teacher can submit evaluations for the selected student.
               </p>
-            ) : null}
-            {formError ? (
-              <p className="mb-4 text-sm text-destructive" role="alert">
-                {formError}
-              </p>
-            ) : null}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Student *</label>
-                <select
-                  name="studentId"
-                  value={form.studentId}
-                  onChange={handleFormChange}
-                  disabled={studentsLoading}
-                  className="w-full px-4 py-3 border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">Select student…</option>
-                  {students.map((s) => (
-                    <option key={s._id} value={s._id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Math score</label>
-                  <input
-                    name="math"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    value={form.math}
-                    onChange={handleFormChange}
-                    className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="e.g. 85"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Reading score</label>
-                  <input
-                    name="reading"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    value={form.reading}
-                    onChange={handleFormChange}
-                    className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="e.g. 90"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Period *</label>
-                <input
-                  name="period"
-                  value={form.period}
-                  onChange={handleFormChange}
-                  className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="e.g. Week 3, Q1"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Comment</label>
-                <textarea
-                  name="comment"
-                  value={form.comment}
-                  onChange={handleFormChange}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary resize-y"
-                  placeholder="Notes for parents…"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="bg-primary text-white px-6 py-3 rounded-xl disabled:opacity-60"
-              >
-                {submitting ? 'Saving…' : 'Submit evaluation'}
-              </button>
-            </form>
+            )}
           </section>
 
           <section className="bg-white rounded-3xl border border-border shadow-lg p-6">

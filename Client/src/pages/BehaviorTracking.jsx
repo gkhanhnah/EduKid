@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStudents } from '../hooks/useStudents.js'
 import { useBehaviors } from '../hooks/useBehaviors.js'
 import { createBehavior } from '../services/api.js'
+import { getClasses } from '../services/api.js'
 import { Sidebar } from '../components/Sidebar.jsx'
 import { motion as m } from 'framer-motion'
+import { useAuth } from '../hooks/useAuth.js'
 
 const BEHAVIOR_TYPES = [
   { value: 'GOOD', label: 'Good', emoji: '👍', bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700' },
@@ -35,6 +37,7 @@ function recordNote(record) {
 }
 
 export function BehaviorTracking() {
+  const { user } = useAuth()
   const { students, loading: studentsLoading } = useStudents()
   const { behaviors, loading: behaviorsLoading, error: behaviorsError, refresh } = useBehaviors()
 
@@ -42,6 +45,34 @@ export function BehaviorTracking() {
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
+
+  const [mainClassIds, setMainClassIds] = useState([])
+
+  const selectedStudent = students.find((s) => String(s._id) === String(form.studentId))
+  const selectedClassId = String(selectedStudent?.classId?._id ?? selectedStudent?.classId ?? '')
+  const canCreateBehavior = Boolean(
+    user?.role === 'teacher' && selectedClassId && mainClassIds.includes(selectedClassId),
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadMainClasses() {
+      if (user?.role !== 'teacher') return
+      try {
+        const d = await getClasses()
+        if (cancelled) return
+        const ids = Array.isArray(d) ? d.filter((c) => c?.isMainTeacher).map((c) => String(c._id)) : []
+        setMainClassIds(ids)
+      } catch {
+        if (cancelled) return
+        setMainClassIds([])
+      }
+    }
+    loadMainClasses()
+    return () => {
+      cancelled = true
+    }
+  }, [user?.role])
 
   const totalGood = behaviors.filter((b) => (b.behaviorType ?? b.type) === 'GOOD').length
   const totalBad = behaviors.filter((b) => (b.behaviorType ?? b.type) === 'BAD').length
@@ -55,6 +86,10 @@ export function BehaviorTracking() {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (!canCreateBehavior) {
+      setFormError('Read-only: only Main teacher can create behavior records for this student.')
+      return
+    }
     if (!form.studentId) {
       setFormError('Please select a student.')
       return
@@ -119,6 +154,12 @@ export function BehaviorTracking() {
           <div className="bg-white rounded-3xl p-8 shadow-lg border border-border mb-8">
             <h2 className="text-lg font-semibold mb-6">New Behavior Record</h2>
 
+            {user?.role === 'teacher' && form.studentId && !canCreateBehavior ? (
+              <p className="mb-4 p-3 bg-muted/40 text-sm text-muted-foreground rounded-xl">
+                Read-only: only Main teacher can create behavior records for the selected student.
+              </p>
+            ) : null}
+
             {formError && (
               <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-xl text-sm">
                 {formError}
@@ -160,6 +201,7 @@ export function BehaviorTracking() {
                         key={bt.value}
                         type="button"
                         onClick={() => setForm((prev) => ({ ...prev, behaviorType: bt.value }))}
+                        disabled={!canCreateBehavior}
                         className={`flex flex-col items-center py-3 px-2 rounded-xl border-2 transition-all ${
                           form.behaviorType === bt.value
                             ? `${bt.bg} ${bt.border} ${bt.text} font-medium`
@@ -183,6 +225,7 @@ export function BehaviorTracking() {
                     onChange={handleChange}
                     placeholder="What happened? (optional)"
                     className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
+                    disabled={!canCreateBehavior}
                   />
                 </div>
                 <div>
@@ -193,13 +236,14 @@ export function BehaviorTracking() {
                     value={form.date}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
+                    disabled={!canCreateBehavior}
                   />
                 </div>
               </div>
 
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || !canCreateBehavior}
                 className="bg-primary text-white px-8 py-3 rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-60"
               >
                 {submitting ? 'Saving…' : 'Save Behavior Record'}
