@@ -170,7 +170,7 @@ export function Evaluation() {
     <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
       <div className="flex-1 overflow-auto">
-        <div className="p-4 md:p-8 max-w-4xl mx-auto">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto">
           <div className="flex items-center gap-3 mb-2">
             <ClipboardCheck className="w-8 h-8 text-primary" />
             <h1 className="text-2xl font-semibold">Student evaluations</h1>

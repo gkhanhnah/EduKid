@@ -309,7 +309,7 @@ export function GroupChat() {
     <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
       <div className="flex-1 overflow-auto p-4 md:p-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <Link
             to={backHref}
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 text-sm"

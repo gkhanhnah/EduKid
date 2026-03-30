@@ -5,7 +5,7 @@ import { Student } from '../models/Student.js'
 import { ParentStudent } from '../models/ParentStudent.js'
 import { findClassForTeacher, findMainTeacherClass } from '../utils/teacherClassScope.js'
 import { computeGradesAverageForStudent } from '../services/gradesAverage.service.js'
-
+                                                                                                                                                                                                              
 const SOURCE_HOMEWORK = 'HOMEWORK'
 const SOURCE_MANUAL = 'MANUAL'
 const MANUAL_SOURCE_ID = 'MANUAL'
@@ -303,52 +303,37 @@ export async function addGradeToSubject(req, res) {
         .json({ error: 'Cannot override homework-sourced grades for this component' })
     }
 
-    // Backward compatibility: legacy grades might not have `source/sourceId` yet.
-    // Prefer the current MANUAL row; otherwise reuse any non-HOMEWORK row.
-    const existingManual = await Grade.findOne({
+    // Atomically upsert the MANUAL grade. Retry once on duplicate-key (11000) which
+    // can happen with concurrent requests hitting the same unique index slot.
+    const setFields = { score: s, createdBy: req.user.id }
+    if (showToParent !== undefined) setFields.showToParent = Boolean(showToParent)
+
+    const upsertFilter = {
       student: studentId,
       class: classId,
       subject: subjectId,
       componentName: comp,
       source: SOURCE_MANUAL,
       sourceId: MANUAL_SOURCE_ID,
-    }).sort({ createdAt: -1 })
-
-    const existing =
-      existingManual ??
-      (await Grade.findOne({
-        student: studentId,
-        class: classId,
-        subject: subjectId,
-        componentName: comp,
-        source: { $ne: SOURCE_HOMEWORK },
-      }).sort({ createdAt: -1 }))
-
-    let doc
-    if (existing) {
-      existing.score = s
-      existing.createdBy = req.user.id
-      existing.source = SOURCE_MANUAL
-      existing.sourceId = MANUAL_SOURCE_ID
-      if (showToParent !== undefined) existing.showToParent = Boolean(showToParent)
-      await existing.save()
-      doc = existing
-    } else {
-      doc = await Grade.create({
-        student: studentId,
-        class: classId,
-        subject: subjectId,
-        componentName: comp,
-        score: s,
-        createdBy: req.user.id,
-        showToParent: Boolean(showToParent),
-        source: SOURCE_MANUAL,
-        sourceId: MANUAL_SOURCE_ID,
-      })
     }
 
-    const populated = await populateGradeDoc(doc)
-    res.status(existing ? 200 : 201).json(populated)
+    let upsertResult
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        upsertResult = await Grade.findOneAndUpdate(upsertFilter, { $set: setFields }, {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true,
+        })
+        break
+      } catch (err) {
+        if (err.code === 11000 && attempt === 0) continue // retry once
+        throw err
+      }
+    }
+
+    const populated = await populateGradeDoc(upsertResult)
+    res.status(200).json(populated)
   } catch (err) {
     handleError(res, err)
   }

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Navigate, useParams } from 'react-router-dom'
-import { Plus, Pencil, Eye, EyeOff } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, Navigate, useParams } from 'react-router-dom'
+import { ArrowLeft, Plus, Pencil, Eye, EyeOff } from 'lucide-react'
 import { Sidebar } from '../components/Sidebar.jsx'
 import { useAuth } from '../hooks/useAuth.js'
 import { LoadingState } from '../components/LoadingState.jsx'
@@ -81,6 +81,10 @@ const defaultComponentRows = () => [
   { name: 'Final', weight: '0.5' },
 ]
 
+function gradebookCellKey(studentId, subjectId, componentName) {
+  return `${String(studentId)}:${String(subjectId)}:${String(componentName)}`
+}
+
 export function GradeManagement() {
   const { user } = useAuth()
   const { classId } = useParams()
@@ -119,6 +123,14 @@ export function GradeManagement() {
   const [modalDraftShowToParent, setModalDraftShowToParent] = useState(false)
   const [modalBusy, setModalBusy] = useState(false)
   const [modalError, setModalError] = useState('')
+
+  const [activeTab, setActiveTab] = useState('manage')
+  const [draftScores, setDraftScores] = useState({})
+  const [gradebookBusy, setGradebookBusy] = useState(false)
+  // Synchronous guard: prevents duplicate API calls fired before React re-renders
+  // the disabled state (React batches state updates, so gradebookBusy=true may not
+  // be reflected in the DOM immediately after setGradebookBusy is called).
+  const gradebookSavingRef = useRef(false)
 
   useEffect(() => {
     if (!classId) return
@@ -163,6 +175,121 @@ export function GradeManagement() {
   useEffect(() => {
     loadAll()
   }, [loadAll])
+
+  const gradeColumns = useMemo(
+    () =>
+      subjects.flatMap((sub) =>
+        (sub.components ?? []).map((c) => ({
+          subjectId: String(sub._id),
+          subjectName: sub.name,
+          componentName: c.name,
+          weight: c.weight,
+        })),
+      ),
+    [subjects],
+  )
+
+  const gradebookGradeMap = useMemo(() => {
+    const m = new Map()
+    if (!classData?.students) return m
+    for (const row of classData.students) {
+      const sid = String(row.student?._id ?? '')
+      if (!sid) continue
+      for (const g of row.grades ?? []) {
+        const subId = String(g.subject?._id ?? g.subject ?? '')
+        const comp = String(g.componentName ?? '')
+        if (!subId || !comp) continue
+        m.set(gradebookCellKey(sid, subId, comp), g)
+      }
+    }
+    return m
+  }, [classData])
+
+  useEffect(() => {
+    if (!classData?.students) {
+      setDraftScores({})
+      return
+    }
+    const next = {}
+    for (const row of classData.students) {
+      const sid = String(row.student?._id ?? '')
+      if (!sid) continue
+      for (const g of row.grades ?? []) {
+        const subId = String(g.subject?._id ?? g.subject ?? '')
+        const comp = String(g.componentName ?? '')
+        if (!subId || !comp) continue
+        const k = gradebookCellKey(sid, subId, comp)
+        const n = Number(g.score)
+        next[k] = Number.isFinite(n) ? String(g.score) : ''
+      }
+    }
+    setDraftScores(next)
+  }, [classData])
+
+  const handleGradebookCellBlur = useCallback(
+    async (studentId, subjectId, componentName, rawValue) => {
+      if (!classId || !canManageGrades) return
+      // Synchronous guard prevents a second save from firing while the first is
+      // still in-flight (React batches state, so gradebookBusy=true may not yet
+      // be reflected in the DOM when a rapid Tab/Enter sequence triggers two blurs).
+      if (gradebookSavingRef.current) return
+      gradebookSavingRef.current = true
+
+      const key = gradebookCellKey(studentId, subjectId, componentName)
+      const g = gradebookGradeMap.get(key)
+      if (g?.source === 'HOMEWORK') {
+        gradebookSavingRef.current = false
+        return
+      }
+
+      const raw = String(rawValue ?? '').trim()
+      if (raw === '') {
+        gradebookSavingRef.current = false
+        return
+      }
+
+      const score = Number(raw)
+      if (!Number.isFinite(score)) {
+        setError('Score must be a valid number.')
+        gradebookSavingRef.current = false
+        return
+      }
+
+      const prevScore = g != null ? Number(g.score) : NaN
+      if (Number.isFinite(prevScore) && prevScore === score) {
+        gradebookSavingRef.current = false
+        return
+      }
+
+      setGradebookBusy(true)
+      setError('')
+      try {
+        if (g && g._id && g.source !== 'HOMEWORK') {
+          await updateGrade(g._id, { score })
+        } else {
+          await addGradeToSubject(subjectId, {
+            studentId,
+            classId,
+            componentName,
+            score,
+            showToParent: false,
+          })
+        }
+        await loadAll()
+      } catch (e) {
+        setError(e?.response?.data?.error || e?.message || 'Could not save grade')
+        setDraftScores((prev) => ({
+          ...prev,
+          [key]:
+            g != null && Number.isFinite(Number(g.score)) ? String(g.score) : prev[key] ?? '',
+        }))
+      } finally {
+        gradebookSavingRef.current = false
+        setGradebookBusy(false)
+      }
+    },
+    [classId, canManageGrades, gradebookGradeMap, gradebookSavingRef, loadAll],
+  )
 
   const activeSubject = useMemo(() => {
     if (!selectedSubjectId) return null
@@ -500,7 +627,7 @@ export function GradeManagement() {
       <div className="flex min-h-screen flex-col md:flex-row bg-background">
         <Sidebar />
         <div className="flex-1 overflow-auto">
-          <div className="p-4 md:p-8 max-w-6xl mx-auto">
+          <div className="p-4 md:p-8 max-w-7xl mx-auto">
             <LoadingState label="Loading grade management…" />
           </div>
         </div>
@@ -513,7 +640,7 @@ export function GradeManagement() {
       <div className="flex min-h-screen flex-col md:flex-row bg-background">
         <Sidebar />
         <div className="flex-1 overflow-auto">
-          <div className="p-4 md:p-8 max-w-6xl mx-auto">
+          <div className="p-4 md:p-8 max-w-7xl mx-auto">
             <ErrorBanner message={error} onRetry={loadAll} />
           </div>
         </div>
@@ -525,12 +652,47 @@ export function GradeManagement() {
     <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
       <div className="flex-1 overflow-auto">
-        <div className="p-4 md:p-8 max-w-6xl mx-auto">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto">
           <div className="mb-6">
+            <Link
+              to={`/classes/${classId}`}
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-3"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to class
+            </Link>
             <h1 className="text-2xl md:text-3xl font-bold mb-2">Grade Management</h1>
             <p className="text-muted-foreground">
               Create subjects with weighted components, enter grades per student, and control parent visibility.
             </p>
+            <div className="flex flex-wrap gap-2 mt-4" role="tablist" aria-label="Grade views">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'manage'}
+                className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                  activeTab === 'manage'
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-background border-border hover:bg-accent/60'
+                }`}
+                onClick={() => setActiveTab('manage')}
+              >
+                By subject
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'gradebook'}
+                className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                  activeTab === 'gradebook'
+                    ? 'bg-primary text-white border-primary'
+                    : 'bg-background border-border hover:bg-accent/60'
+                }`}
+                onClick={() => setActiveTab('gradebook')}
+              >
+                Gradebook
+              </button>
+            </div>
           </div>
 
           {error ? (
@@ -539,6 +701,114 @@ export function GradeManagement() {
             </div>
           ) : null}
 
+          {activeTab === 'gradebook' ? (
+            <div className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm mb-6">
+              <h2 className="font-semibold text-lg mb-2">Gradebook</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Enter scores per subject component. Cells from graded homework are read-only. Press Tab or click
+                outside a cell to save.
+              </p>
+              {!classData?.students?.length ? (
+                <p className="text-sm text-muted-foreground">No students in this class.</p>
+              ) : !gradeColumns.length ? (
+                <p className="text-sm text-muted-foreground">
+                  No subject components yet. Add subjects with components in the &quot;By subject&quot; tab.
+                </p>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-border/60">
+                  <table className="w-full text-sm border-collapse min-w-[720px]">
+                    <thead>
+                      <tr className="bg-muted/40 border-b border-border">
+                        <th
+                          scope="col"
+                          className="sticky left-0 z-10 bg-muted/40 px-3 py-2 text-left font-semibold border-r border-border min-w-[140px]"
+                        >
+                          Student
+                        </th>
+                        {gradeColumns.map((col) => (
+                          <th
+                            key={`${col.subjectId}:${col.componentName}`}
+                            scope="col"
+                            className="px-2 py-2 text-center font-medium border-r border-border/60 last:border-r-0 min-w-[100px]"
+                          >
+                            <div className="text-xs leading-tight">{col.subjectName}</div>
+                            <div className="text-[0.7rem] text-muted-foreground font-normal mt-0.5">
+                              {col.componentName}{' '}
+                              <span className="tabular-nums">({formatNumberOrDash(col.weight, 2)})</span>
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {classData.students.map((row) => {
+                        const sid = String(row.student?._id ?? '')
+                        return (
+                          <tr key={sid} className="border-b border-border/60 last:border-b-0">
+                            <th
+                              scope="row"
+                              className="sticky left-0 z-10 bg-background px-3 py-2 text-left font-medium border-r border-border align-middle"
+                            >
+                              {row.student?.name ?? '—'}
+                            </th>
+                            {gradeColumns.map((col) => {
+                              const key = gradebookCellKey(sid, col.subjectId, col.componentName)
+                              const g = gradebookGradeMap.get(key)
+                              const homeworkLocked = g?.source === 'HOMEWORK'
+                              const disabled =
+                                !canManageGrades || gradebookBusy || homeworkLocked || loading
+                              return (
+                                <td
+                                  key={key}
+                                  className="p-1 border-r border-border/40 last:border-r-0 align-middle text-center"
+                                >
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <input
+                                      type="number"
+                                      inputMode="decimal"
+                                      step="0.5"
+                                      aria-label={`${row.student?.name ?? 'Student'} — ${col.subjectName} ${col.componentName}`}
+                                      className={`w-full max-w-[5.5rem] mx-auto px-2 py-1.5 rounded-lg border text-center tabular-nums text-sm ${
+                                        homeworkLocked
+                                          ? 'bg-muted/50 border-border text-muted-foreground cursor-not-allowed'
+                                          : 'border-border bg-white'
+                                      }`}
+                                      value={draftScores[key] ?? ''}
+                                      disabled={disabled}
+                                      onChange={(e) =>
+                                        setDraftScores((prev) => ({ ...prev, [key]: e.target.value }))
+                                      }
+                                      onBlur={(e) =>
+                                        handleGradebookCellBlur(
+                                          sid,
+                                          col.subjectId,
+                                          col.componentName,
+                                          e.target.value,
+                                        )
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') e.currentTarget.blur()
+                                      }}
+                                    />
+                                    {homeworkLocked ? (
+                                      <span className="text-[0.65rem] text-muted-foreground">Homework</span>
+                                    ) : null}
+                                  </div>
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {activeTab === 'manage' ? (
+            <>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6">
             <div className="lg:col-span-2 bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm">
               <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
@@ -796,6 +1066,8 @@ export function GradeManagement() {
                 </div>
               ) : null}
             </div>
+          ) : null}
+            </>
           ) : null}
         </div>
       </div>

@@ -47,7 +47,7 @@ export function StudentGradeView() {
       <div className="flex min-h-screen flex-col md:flex-row bg-background">
         <Sidebar />
         <div className="flex-1 overflow-auto">
-          <div className="p-4 md:p-8 max-w-4xl mx-auto">
+          <div className="p-4 md:p-8 max-w-7xl mx-auto">
             <LoadingState label="Loading student grades…" />
           </div>
         </div>
@@ -60,7 +60,7 @@ export function StudentGradeView() {
       <div className="flex min-h-screen flex-col md:flex-row bg-background">
         <Sidebar />
         <div className="flex-1 overflow-auto">
-          <div className="p-4 md:p-8 max-w-4xl mx-auto">
+          <div className="p-4 md:p-8 max-w-7xl mx-auto">
             <ErrorBanner message={error} onRetry={load} />
           </div>
         </div>
@@ -76,7 +76,7 @@ export function StudentGradeView() {
     <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
       <div className="flex-1 overflow-auto">
-        <div className="p-4 md:p-8 max-w-4xl mx-auto">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto">
           <div className="mb-6">
             <h1 className="text-2xl md:text-3xl font-bold mb-2">Student Grades</h1>
             <p className="text-muted-foreground">

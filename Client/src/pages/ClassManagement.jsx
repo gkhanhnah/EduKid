@@ -182,8 +182,8 @@ export function ClassManagement() {
   return (
     <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
-      <div className="flex-1 overflow-auto p-4 md:p-8">
-        <div className="max-w-5xl mx-auto">
+      <div className="flex-1 overflow-auto p-4 md:p-8 max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div>
               <h1 className="text-2xl font-semibold mb-1">Class management</h1>
