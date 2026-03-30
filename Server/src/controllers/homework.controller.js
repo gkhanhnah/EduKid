@@ -13,6 +13,9 @@ function handleError(res, err) {
   if (err?.name === 'CastError') {
     return res.status(400).json({ error: 'Invalid id' })
   }
+  if (err?.code === 11000) {
+    return res.status(409).json({ error: 'Duplicate grade for this component' })
+  }
   return res.status(500).json({ error: 'Server error' })
 }
 
@@ -278,23 +281,46 @@ export async function gradeHomework(req, res) {
     homework.maxScore = mx
     await homework.save()
 
-    // Ensure consistency: remove previous HOMEWORK rows for this homeworkId and recreate.
-    await Grade.deleteMany({ source: 'HOMEWORK', sourceId: String(homework._id) })
+    const homeworkSourceId = String(homework._id)
 
-    const docs = entries.map((e) => ({
-      student: e.studentId,
-      class: homework.classId,
-      subject: subjectId,
-      componentName,
-      score: Number(e.score),
-      createdBy: req.user.id,
-      showToParent: false,
+    // Remove any HOMEWORK grades tied to this homework that no longer match the
+    // current (subject, componentName) — handles the "re-grade with different component" case.
+    await Grade.deleteMany({
       source: 'HOMEWORK',
-      sourceId: String(homework._id),
+      sourceId: homeworkSourceId,
+      $or: [
+        { subject: { $ne: new mongoose.Types.ObjectId(subjectId) } },
+        { componentName: { $ne: componentName } },
+      ],
+    })
+
+    // Atomically upsert each student's grade to avoid duplicate-key errors from
+    // concurrent requests or stale data.
+    const bulkOps = entries.map((e) => ({
+      updateOne: {
+        filter: {
+          student: new mongoose.Types.ObjectId(String(e.studentId)),
+          class: homework.classId,
+          subject: new mongoose.Types.ObjectId(subjectId),
+          componentName,
+          source: 'HOMEWORK',
+          sourceId: homeworkSourceId,
+        },
+        update: {
+          $set: {
+            score: Number(e.score),
+            createdBy: new mongoose.Types.ObjectId(String(req.user.id)),
+            showToParent: false,
+            source: 'HOMEWORK',
+            sourceId: homeworkSourceId,
+          },
+        },
+        upsert: true,
+      },
     }))
 
-    await Grade.insertMany(docs)
-    res.json({ homework, created: docs.length })
+    await Grade.bulkWrite(bulkOps, { ordered: false })
+    res.json({ homework, created: bulkOps.length })
   } catch (err) {
     handleError(res, err)
   }

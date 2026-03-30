@@ -315,7 +315,7 @@ export function Documents() {
     <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
       <div className="flex-1 min-h-screen overflow-auto">
-        <div className="mx-auto max-w-4xl px-4 py-8 md:px-8 md:py-10">
+        <div className="mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-10">
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">

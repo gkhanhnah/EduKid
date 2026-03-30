@@ -84,7 +84,7 @@ export function TeacherDashboard() {
     <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
       <div className="flex-1 overflow-auto">
-        <div className="p-4 md:p-8 max-w-6xl mx-auto">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto">
           <div className="mb-8">
             <h1 className="text-2xl md:text-3xl font-bold mb-2">
               Good morning, {greetingName}
@@ -312,7 +312,7 @@ export function TeacherDashboard() {
                     AI lesson
                   </Link>
                   <Link
-                    to="/behavior-history"
+                    to="/behavior?tab=history"
                     className="inline-flex items-center gap-2 rounded-2xl border border-border px-4 py-2 text-sm font-medium"
                   >
                     <BookOpen className="w-4 h-4" />

@@ -80,7 +80,7 @@ export function GamePlay() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#E0E7FF] via-background to-[#FEF3C7] p-6">
-      <div className="max-w-4xl mx-auto mb-6">
+      <div className="max-w-7xl mx-auto mb-6">
         <div className="bg-white rounded-3xl p-6 shadow-lg border border-border">
           <div className="flex items-center justify-between gap-2">
             <button
@@ -116,7 +116,7 @@ export function GamePlay() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}

@@ -8,14 +8,13 @@ import { Timetable as TimetablePage } from './pages/Timetable.jsx'
 import { GroupChat as GroupChatPage } from './pages/GroupChat.jsx'
 import { StudentManagement as StudentManagementPage } from './pages/StudentManagement.jsx'
 import { StudentDetail as StudentDetailPage } from './pages/StudentDetail.jsx'
-import { BehaviorHistory as BehaviorHistoryPage } from './pages/BehaviorHistory.jsx'
+import { Behavior as BehaviorPage } from './pages/Behavior.jsx'
 import { TeacherDashboard } from './pages/TeacherDashboard.jsx'
 import { ParentLayout } from './pages/ParentLayout.jsx'
 import { ParentDashboardHome } from './pages/ParentDashboard.jsx'
 import { ParentHomework } from './pages/ParentHomework.jsx'
 import { Attendance as AttendancePage } from './pages/Attendance.jsx'
 import { Evaluation as EvaluationPage } from './pages/Evaluation.jsx'
-import { BehaviorTracking as BehaviorTrackingPage } from './pages/BehaviorTracking.jsx'
 import { Games as GamesPage } from './pages/Games.jsx'
 import { GamePlay as GamePlayPage } from './pages/GamePlay.jsx'
 import { AILessonGenerator as AILessonGeneratorPage } from './pages/AILessonGenerator.jsx'
@@ -52,8 +51,8 @@ export default function App() {
               <Route path="attendance" element={<AttendancePage />} />
             </Route>
             <Route path="parent" element={<Navigate to="/parent-dashboard" replace />} />
-            <Route path="behavior" element={<BehaviorTrackingPage />} />
-            <Route path="behavior-history" element={<BehaviorHistoryPage />} />
+            <Route path="behavior" element={<BehaviorPage />} />
+            <Route path="behavior-history" element={<Navigate to="/behavior?tab=history" replace />} />
             <Route path="games" element={<GamesPage />} />
             <Route path="games/:gameId" element={<GamePlayPage />} />
             <Route path="ai-lesson" element={<AILessonGeneratorPage />} />
@@ -63,7 +62,7 @@ export default function App() {
             <Route path="students/:studentId/grades" element={<StudentGradeViewPage />} />
             <Route path="students" element={<StudentManagementPage />} />
             <Route path="evaluations" element={<EvaluationPage />} />
-            <Route path="behaviors" element={<BehaviorHistoryPage />} />
+            <Route path="behaviors" element={<Navigate to="/behavior?tab=history" replace />} />
             <Route path="*" element={<RedirectHome />} />
           </Route>
         </Routes>

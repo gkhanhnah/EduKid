@@ -163,6 +163,8 @@ export function HomeworkManagement() {
 
   async function handleGradeSubmit(e) {
     e.preventDefault()
+    if (gradeBusy) return  // ← thêm dòng này, guard double submit
+    
     if (!gradingHomework) return
     setGradeError('')
     setGradeBusy(true)
@@ -322,7 +324,7 @@ export function HomeworkManagement() {
     <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
       <div className="flex-1 overflow-auto">
-        <div className="p-4 md:p-8 max-w-4xl mx-auto">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto">
           <div className="mb-6">
             <Link
               to={`/classes/${classId}`}

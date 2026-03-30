@@ -209,7 +209,7 @@ export function Attendance() {
   }
 
   const content = (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto w-full">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto w-full">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}

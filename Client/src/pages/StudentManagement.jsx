@@ -149,7 +149,7 @@ export function StudentManagement() {
     <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <Sidebar />
       <div className="flex-1 overflow-auto">
-        <div className="p-4 md:p-8">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto">
           <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="mb-2">Student Management</h1>
