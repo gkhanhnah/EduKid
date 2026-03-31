@@ -113,7 +113,24 @@ export function ParentChildProvider({ children }) {
 export function useParentChild() {
   const ctx = useContext(ParentChildContext)
   if (!ctx) {
-    throw new Error('useParentChild must be used within ParentChildProvider')
+    // Allow shared UI (e.g. Sidebar) to render on non-parent routes
+    // that are not wrapped by ParentChildProvider.
+    return {
+      linkedChildren: [],
+      overview: {
+        behaviorSummaryByChild: [],
+        latestEvaluations: [],
+        recentBehaviors: [],
+      },
+      loading: false,
+      error: '',
+      reload: async () => undefined,
+      selectedStudentId: '',
+      setSelectedStudentId: () => undefined,
+      selectedLink: null,
+      selectedStudent: null,
+      selectedIndex: 0,
+    }
   }
   return ctx
 }

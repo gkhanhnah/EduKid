@@ -16,9 +16,14 @@ function serializeUser(u) {
 
 function serializeGroupMessage(m) {
   if (!m) return m
+  const cid =
+    typeof m.clientMessageId === 'string' && m.clientMessageId.trim()
+      ? String(m.clientMessageId).trim()
+      : undefined
   return {
     ...m,
     _id: String(m._id),
+    ...(cid ? { clientMessageId: cid } : {}),
     createdAt: m.createdAt ? new Date(m.createdAt).toISOString() : null,
     sender: serializeUser(m.sender),
     mentions: Array.isArray(m.mentions) ? m.mentions.map(serializeUser) : [],

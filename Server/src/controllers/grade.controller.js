@@ -1,11 +1,13 @@
 import mongoose from 'mongoose'
 import { Grade } from '../models/Grade.js'
+import { GradeAuditLog } from '../models/GradeAuditLog.js'
 import { Subject } from '../models/GradeType.js'
 import { Student } from '../models/Student.js'
+import { ClassRoom } from '../models/Class.js'
 import { ParentStudent } from '../models/ParentStudent.js'
 import { findClassForTeacher, findMainTeacherClass } from '../utils/teacherClassScope.js'
 import { computeGradesAverageForStudent } from '../services/gradesAverage.service.js'
-                                                                                                                                                                                                              
+
 const SOURCE_HOMEWORK = 'HOMEWORK'
 const SOURCE_MANUAL = 'MANUAL'
 const MANUAL_SOURCE_ID = 'MANUAL'
@@ -158,8 +160,15 @@ export async function createSubject(req, res) {
     const compErr = validateComponents(components)
     if (compErr) return res.status(400).json({ error: compErr })
 
-    const cls = await findMainTeacherClass(classId, req.user.id).lean()
-    if (!cls) return res.status(404).json({ error: 'Class not found or not your class' })
+    const isAdmin = req.user?.role === 'admin'
+    const cls = isAdmin
+      ? await ClassRoom.findById(classId).lean()
+      : await findMainTeacherClass(classId, req.user.id).lean()
+    if (!cls) {
+      return res.status(404).json({
+        error: isAdmin ? 'Class not found' : 'Class not found or not your class',
+      })
+    }
 
     const normalized = components.map((c) => ({
       name: String(c.name).trim(),
@@ -189,8 +198,11 @@ export async function getSubjects(req, res) {
       return res.status(400).json({ error: 'Invalid classId' })
     }
 
-    const cls = await findClassForTeacher(classId, req.user.id).lean()
-    if (!cls) return res.status(404).json({ error: 'Class not found or not your class' })
+    const isAdmin = req.user?.role === 'admin'
+    const cls = isAdmin ? await ClassRoom.findById(classId).lean() : await findClassForTeacher(classId, req.user.id).lean()
+    if (!cls) {
+      return res.status(404).json({ error: isAdmin ? 'Class not found' : 'Class not found or not your class' })
+    }
 
     const subjects = await Subject.find({ classId }).sort({ createdAt: 1 }).lean()
     res.json({ classId, subjects })
@@ -211,8 +223,9 @@ export async function updateSubject(req, res) {
     const subj = await Subject.findById(id)
     if (!subj) return res.status(404).json({ error: 'Subject not found' })
 
-    const cls = await findMainTeacherClass(subj.classId, req.user.id).lean()
-    if (!cls) return res.status(404).json({ error: 'Not your class' })
+    const isAdmin = req.user?.role === 'admin'
+    const cls = isAdmin ? await ClassRoom.findById(subj.classId).lean() : await findMainTeacherClass(subj.classId, req.user.id).lean()
+    if (!cls) return res.status(404).json({ error: isAdmin ? 'Class not found' : 'Not your class' })
 
     const updates = {}
     if (name !== undefined) {
@@ -251,10 +264,9 @@ export async function updateSubject(req, res) {
 }
 
 export async function addGradeToSubject(req, res) {
+  const { subjectId } = req.params
+  const { studentId, classId, componentName, score, showToParent } = req.body || {}
   try {
-    const { subjectId } = req.params
-    const { studentId, classId, componentName, score, showToParent } = req.body || {}
-
     if (!mongoose.Types.ObjectId.isValid(subjectId)) {
       return res.status(400).json({ error: 'Invalid subjectId' })
     }
@@ -272,8 +284,13 @@ export async function addGradeToSubject(req, res) {
       return res.status(400).json({ error: 'score must be a valid number' })
     }
 
-    const cls = await findMainTeacherClass(classId, req.user.id).lean()
-    if (!cls) return res.status(404).json({ error: 'Class not found or not your class' })
+    const isAdmin = req.user?.role === 'admin'
+    const cls = isAdmin ? await ClassRoom.findById(classId).lean() : await findMainTeacherClass(classId, req.user.id).lean()
+    if (!cls) {
+      return res.status(404).json({
+        error: isAdmin ? 'Class not found' : 'Class not found or not your class',
+      })
+    }
 
     const subject = await Subject.findOne({ _id: subjectId, classId }).lean()
     if (!subject) return res.status(404).json({ error: 'Subject not found for this class' })
@@ -303,8 +320,20 @@ export async function addGradeToSubject(req, res) {
         .json({ error: 'Cannot override homework-sourced grades for this component' })
     }
 
+    // If the workflow is locked for this subject, prevent any manual writes (even new components).
+    const anyLocked = await Grade.exists({
+      class: classId,
+      subject: subjectId,
+      locked: true,
+    })
+    if (anyLocked) {
+      return res.status(409).json({ error: 'Grades are locked' })
+    }
+
     // Atomically upsert the MANUAL grade. Retry once on duplicate-key (11000) which
     // can happen with concurrent requests hitting the same unique index slot.
+    // Thay toàn bộ đoạn upsert trong addGradeToSubject:
+
     const setFields = { score: s, createdBy: req.user.id }
     if (showToParent !== undefined) setFields.showToParent = Boolean(showToParent)
 
@@ -317,24 +346,100 @@ export async function addGradeToSubject(req, res) {
       sourceId: MANUAL_SOURCE_ID,
     }
 
+    // If grades are locked (submitted/approved), prevent manual overwrites.
+    const existingManual = await Grade.findOne(upsertFilter).lean()
+    if (existingManual?.locked) {
+      return res.status(409).json({ error: 'Grades are locked' })
+    }
+
     let upsertResult
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        upsertResult = await Grade.findOneAndUpdate(upsertFilter, { $set: setFields }, {
-          upsert: true,
-          new: true,
-          setDefaultsOnInsert: true,
-        })
-        break
-      } catch (err) {
-        if (err.code === 11000 && attempt === 0) continue // retry once
-        throw err
-      }
+    try {
+      upsertResult = await Grade.findOneAndUpdate(
+        upsertFilter,
+        { $set: setFields },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      )
+    } catch (err) {
+      if (err.code !== 11000) throw err
+      // Race condition: doc was inserted concurrently — just update it
+      upsertResult = await Grade.findOneAndUpdate(
+        upsertFilter,
+        { $set: setFields },
+        { new: true },
+      )
+      if (!upsertResult) throw err // truly unexpected
     }
 
     const populated = await populateGradeDoc(upsertResult)
+
+    const to = {
+      score: upsertResult?.score,
+      showToParent: showToParent !== undefined ? Boolean(showToParent) : populated?.showToParent,
+      approvalStatus: upsertResult?.approvalStatus,
+      locked: upsertResult?.locked,
+    }
+
+    await GradeAuditLog.create({
+      action: existingManual ? 'GRADE_MANUAL_UPDATED' : 'GRADE_MANUAL_CREATED',
+      scopeType: 'GRADE',
+      actor: req.user.id,
+      gradeId: populated?._id ?? upsertResult?._id,
+      studentId: studentId,
+      classId: classId,
+      subjectId: subjectId,
+      componentName: comp,
+      from: existingManual
+        ? {
+            score: existingManual.score,
+            showToParent: existingManual.showToParent,
+          }
+        : null,
+      to,
+    })
     res.status(200).json(populated)
   } catch (err) {
+    // Final idempotency fallback: if a duplicate key still leaks from any path,
+    // resolve by business key and return deterministic output.
+    if (err?.code === 11000) {
+      try {
+        const comp = String(componentName ?? '').trim()
+        if (
+          studentId &&
+          classId &&
+          mongoose.Types.ObjectId.isValid(studentId) &&
+          mongoose.Types.ObjectId.isValid(classId) &&
+          mongoose.Types.ObjectId.isValid(subjectId) &&
+          comp
+        ) {
+          const existing = await Grade.findOne({
+            student: studentId,
+            class: classId,
+            subject: subjectId,
+            componentName: comp,
+          })
+
+          if (existing) {
+            if (existing.source === SOURCE_HOMEWORK) {
+              return res
+                .status(409)
+                .json({ error: 'Cannot override homework-sourced grades for this component' })
+            }
+
+            const s = Number(score)
+            if (Number.isFinite(s)) existing.score = s
+            existing.createdBy = req.user.id
+            existing.source = SOURCE_MANUAL
+            existing.sourceId = MANUAL_SOURCE_ID
+            if (showToParent !== undefined) existing.showToParent = Boolean(showToParent)
+            await existing.save()
+            const populated = await populateGradeDoc(existing)
+            return res.status(200).json(populated)
+          }
+        }
+      } catch {
+        // Fall through to default error response below.
+      }
+    }
     handleError(res, err)
   }
 }
@@ -354,8 +459,15 @@ export async function getGradesBySubject(req, res) {
     const subject = await Subject.findById(subjectId).lean()
     if (!subject) return res.status(404).json({ error: 'Subject not found' })
 
-    const cls = await findClassForTeacher(subject.classId, req.user.id).lean()
-    if (!cls) return res.status(404).json({ error: 'Class not found or not your class' })
+    const isAdmin = req.user?.role === 'admin'
+    const cls = isAdmin
+      ? await ClassRoom.findById(subject.classId).lean()
+      : await findClassForTeacher(subject.classId, req.user.id).lean()
+    if (!cls) {
+      return res.status(404).json({
+        error: isAdmin ? 'Class not found' : 'Class not found or not your class',
+      })
+    }
 
     const filter = { subject: subjectId, class: subject.classId }
     if (studentId) filter.student = studentId
@@ -403,8 +515,15 @@ export async function putGrade(req, res) {
     const grade = await Grade.findById(id)
     if (!grade) return res.status(404).json({ error: 'Grade not found' })
 
-    const cls = await findMainTeacherClass(grade.class, req.user.id).lean()
-    if (!cls) return res.status(404).json({ error: 'Not your class' })
+    if (grade.locked) {
+      return res.status(409).json({ error: 'Grades are locked' })
+    }
+
+    const isAdmin = req.user?.role === 'admin'
+    const cls = isAdmin ? await ClassRoom.findById(grade.class).lean() : await findMainTeacherClass(grade.class, req.user.id).lean()
+    if (!cls) {
+      return res.status(404).json({ error: isAdmin ? 'Class not found' : 'Not your class' })
+    }
 
     const updates = {}
     if (score !== undefined) {
@@ -427,6 +546,36 @@ export async function putGrade(req, res) {
       runValidators: true,
     })
 
+    if (updated) {
+      const from = {
+        score: grade.score,
+        showToParent: grade.showToParent,
+        locked: grade.locked,
+        approvalStatus: grade.approvalStatus,
+      }
+      const to = {
+        score: updates.score !== undefined ? updates.score : grade.score,
+        showToParent: updates.showToParent !== undefined ? updates.showToParent : grade.showToParent,
+        locked: grade.locked,
+        approvalStatus: grade.approvalStatus,
+      }
+
+      if (score !== undefined || showToParent !== undefined) {
+        await GradeAuditLog.create({
+          action: 'GRADE_UPDATED',
+          scopeType: 'GRADE',
+          actor: req.user.id,
+          gradeId: updated._id,
+          studentId: updated.student,
+          classId: updated.class,
+          subjectId: updated.subject,
+          componentName: updated.componentName,
+          from,
+          to,
+        })
+      }
+    }
+
     const populated = await populateGradeDoc(updated)
     res.json(populated)
   } catch (err) {
@@ -444,12 +593,32 @@ export async function putGradeShow(req, res) {
     const grade = await Grade.findById(id)
     if (!grade) return res.status(404).json({ error: 'Grade not found' })
 
-    const cls = await findMainTeacherClass(grade.class, req.user.id).lean()
-    if (!cls) return res.status(404).json({ error: 'Not your class' })
+    if (grade.locked) {
+      return res.status(409).json({ error: 'Grades are locked' })
+    }
+
+    const isAdmin = req.user?.role === 'admin'
+    const cls = isAdmin ? await ClassRoom.findById(grade.class).lean() : await findMainTeacherClass(grade.class, req.user.id).lean()
+    if (!cls) {
+      return res.status(404).json({ error: isAdmin ? 'Class not found' : 'Not your class' })
+    }
 
     grade.showToParent = true
     grade.createdBy = req.user.id
     await grade.save()
+
+    await GradeAuditLog.create({
+      action: 'GRADE_VISIBILITY_UPDATED',
+      scopeType: 'GRADE',
+      actor: req.user.id,
+      gradeId: grade._id,
+      studentId: grade.student,
+      classId: grade.class,
+      subjectId: grade.subject,
+      componentName: grade.componentName,
+      from: { showToParent: false },
+      to: { showToParent: true },
+    })
 
     const populated = await populateGradeDoc(grade)
     res.json(populated)
@@ -466,7 +635,7 @@ export async function getGradesForStudent(req, res) {
     }
 
     const role = req.user?.role
-    if (!role || (role !== 'teacher' && role !== 'parent')) {
+    if (!role || (role !== 'teacher' && role !== 'parent' && role !== 'admin')) {
       return res.status(403).json({ error: 'Forbidden' })
     }
 
@@ -485,13 +654,23 @@ export async function getGradesForStudent(req, res) {
         .populate('createdBy', 'name email')
         .sort({ createdAt: -1 })
         .lean()
-    } else {
+    } else if (role === 'parent') {
       const owned = await assertStudentAccessForParent(studentId, req.user.id)
       if (!owned) return res.status(403).json({ error: 'Not authorized for this student' })
       student = owned.student
       classId = student.classId
 
       grades = await Grade.find({ student: studentId, class: classId, showToParent: true })
+        .populate('subject', 'name description components classId')
+        .populate('createdBy', 'name email')
+        .sort({ createdAt: -1 })
+        .lean()
+    } else {
+      // Admin: full grade history for any student.
+      student = await Student.findById(studentId).lean()
+      if (!student) return res.status(404).json({ error: 'Student not found' })
+      classId = student.classId
+      grades = await Grade.find({ student: studentId, class: classId })
         .populate('subject', 'name description components classId')
         .populate('createdBy', 'name email')
         .sort({ createdAt: -1 })
@@ -531,8 +710,13 @@ export async function getGradesForClass(req, res) {
       return res.status(400).json({ error: 'Invalid classId' })
     }
 
-    const cls = await findClassForTeacher(classId, req.user.id).lean()
-    if (!cls) return res.status(404).json({ error: 'Class not found or not your class' })
+    const isAdmin = req.user?.role === 'admin'
+    const cls = isAdmin ? await ClassRoom.findById(classId).lean() : await findClassForTeacher(classId, req.user.id).lean()
+    if (!cls) {
+      return res.status(404).json({
+        error: isAdmin ? 'Class not found' : 'Class not found or not your class',
+      })
+    }
 
     const [subjects, students, gradesAll] = await Promise.all([
       Subject.find({ classId }).sort({ name: 1 }).lean(),
@@ -599,7 +783,7 @@ export async function getGradesAverage(req, res) {
     }
 
     const role = req.user?.role
-    if (!role || (role !== 'teacher' && role !== 'parent')) {
+    if (!role || (role !== 'teacher' && role !== 'parent' && role !== 'admin')) {
       return res.status(403).json({ error: 'Forbidden' })
     }
 
@@ -608,14 +792,268 @@ export async function getGradesAverage(req, res) {
       const owned = await assertStudentAccessForTeacher(studentId, req.user.id)
       if (!owned) return res.status(404).json({ error: 'Student not found' })
       classId = owned.classId
-    } else {
+    } else if (role === 'parent') {
       const owned = await assertStudentAccessForParent(studentId, req.user.id)
       if (!owned) return res.status(404).json({ error: 'Student not found' })
       classId = owned.student.classId
+    } else {
+      // Admin
+      const s = await Student.findById(studentId).select('classId').lean()
+      if (!s) return res.status(404).json({ error: 'Student not found' })
+      classId = s.classId
     }
 
     const { subjects } = await computeGradesAverageForStudent({ studentId, classId })
     res.json({ subjects })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
+function getWorkflowScopeFromQuery({ classId, subjectId }) {
+  return {
+    classId: classId || null,
+    subjectId: subjectId || null,
+  }
+}
+
+function getActorId(req) {
+  return req.user?.id
+}
+
+export async function submitGradesForSubject(req, res) {
+  try {
+    const { classId, subjectId } = req.body || {}
+    if (!classId || !mongoose.Types.ObjectId.isValid(classId)) {
+      return res.status(400).json({ error: 'Valid classId is required' })
+    }
+    if (!subjectId || !mongoose.Types.ObjectId.isValid(subjectId)) {
+      return res.status(400).json({ error: 'Valid subjectId is required' })
+    }
+
+    const isAdmin = req.user?.role === 'admin'
+    if (!isAdmin) {
+      const cls = await findMainTeacherClass(classId, getActorId(req)).lean()
+      if (!cls) return res.status(404).json({ error: 'Class not found or not your class' })
+    }
+
+    const now = new Date()
+    const filter = { class: classId, subject: subjectId }
+    const sample = await Grade.findOne(filter).lean()
+
+    const updated = await Grade.updateMany(filter, {
+      $set: {
+        approvalStatus: 'SUBMITTED',
+        locked: true,
+        lockedAt: now,
+        submittedAt: now,
+        submittedBy: getActorId(req),
+      },
+    })
+
+    await GradeAuditLog.create({
+      action: 'SUBJECT_SUBMITTED',
+      scopeType: 'SUBJECT',
+      actor: getActorId(req),
+      ...getWorkflowScopeFromQuery({ classId, subjectId }),
+      from: sample ? { locked: sample.locked, approvalStatus: sample.approvalStatus } : null,
+      to: { locked: true, approvalStatus: 'SUBMITTED' },
+    })
+
+    res.json({ updated: updated.modifiedCount ?? updated.nModified ?? 0 })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
+export async function approveGradesForSubject(req, res) {
+  try {
+    const { classId, subjectId } = req.body || {}
+    if (!classId || !mongoose.Types.ObjectId.isValid(classId)) {
+      return res.status(400).json({ error: 'Valid classId is required' })
+    }
+    if (!subjectId || !mongoose.Types.ObjectId.isValid(subjectId)) {
+      return res.status(400).json({ error: 'Valid subjectId is required' })
+    }
+
+    const now = new Date()
+    const filter = { class: classId, subject: subjectId }
+    const sample = await Grade.findOne(filter).lean()
+
+    const updated = await Grade.updateMany(filter, {
+      $set: {
+        approvalStatus: 'APPROVED',
+        locked: true,
+        lockedAt: now,
+        approvedAt: now,
+        approvedBy: getActorId(req),
+      },
+    })
+
+    await GradeAuditLog.create({
+      action: 'SUBJECT_APPROVED',
+      scopeType: 'SUBJECT',
+      actor: getActorId(req),
+      ...getWorkflowScopeFromQuery({ classId, subjectId }),
+      from: sample ? { locked: sample.locked, approvalStatus: sample.approvalStatus } : null,
+      to: { locked: true, approvalStatus: 'APPROVED' },
+    })
+
+    res.json({ updated: updated.modifiedCount ?? updated.nModified ?? 0 })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
+export async function rejectGradesForSubject(req, res) {
+  try {
+    const { classId, subjectId, rejectionReason } = req.body || {}
+    if (!classId || !mongoose.Types.ObjectId.isValid(classId)) {
+      return res.status(400).json({ error: 'Valid classId is required' })
+    }
+    if (!subjectId || !mongoose.Types.ObjectId.isValid(subjectId)) {
+      return res.status(400).json({ error: 'Valid subjectId is required' })
+    }
+
+    const now = new Date()
+    const filter = { class: classId, subject: subjectId }
+    const sample = await Grade.findOne(filter).lean()
+
+    const updated = await Grade.updateMany(filter, {
+      $set: {
+        approvalStatus: 'REJECTED',
+        locked: false,
+        lockedAt: null,
+        rejectedAt: now,
+        rejectedBy: getActorId(req),
+        rejectionReason: String(rejectionReason ?? '').trim() || '',
+      },
+    })
+
+    await GradeAuditLog.create({
+      action: 'SUBJECT_REJECTED',
+      scopeType: 'SUBJECT',
+      actor: getActorId(req),
+      ...getWorkflowScopeFromQuery({ classId, subjectId }),
+      from: sample ? { locked: sample.locked, approvalStatus: sample.approvalStatus } : null,
+      to: { locked: false, approvalStatus: 'REJECTED' },
+    })
+
+    res.json({ updated: updated.modifiedCount ?? updated.nModified ?? 0 })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
+export async function lockGradesForSubject(req, res) {
+  try {
+    const { classId, subjectId } = req.body || {}
+    if (!classId || !mongoose.Types.ObjectId.isValid(classId)) {
+      return res.status(400).json({ error: 'Valid classId is required' })
+    }
+    if (!subjectId || !mongoose.Types.ObjectId.isValid(subjectId)) {
+      return res.status(400).json({ error: 'Valid subjectId is required' })
+    }
+
+    const isAdmin = req.user?.role === 'admin'
+    if (!isAdmin) {
+      const cls = await findMainTeacherClass(classId, getActorId(req)).lean()
+      if (!cls) return res.status(404).json({ error: 'Class not found or not your class' })
+    }
+
+    const now = new Date()
+    const filter = { class: classId, subject: subjectId }
+    const sample = await Grade.findOne(filter).lean()
+    const updated = await Grade.updateMany(filter, {
+      $set: { locked: true, lockedAt: now },
+    })
+
+    await GradeAuditLog.create({
+      action: 'SUBJECT_LOCKED',
+      scopeType: 'SUBJECT',
+      actor: getActorId(req),
+      classId,
+      subjectId,
+      from: sample ? { locked: sample.locked } : null,
+      to: { locked: true },
+    })
+
+    res.json({ updated: updated.modifiedCount ?? updated.nModified ?? 0 })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
+export async function unlockGradesForSubject(req, res) {
+  try {
+    const { classId, subjectId } = req.body || {}
+    if (!classId || !mongoose.Types.ObjectId.isValid(classId)) {
+      return res.status(400).json({ error: 'Valid classId is required' })
+    }
+    if (!subjectId || !mongoose.Types.ObjectId.isValid(subjectId)) {
+      return res.status(400).json({ error: 'Valid subjectId is required' })
+    }
+
+    const isAdmin = req.user?.role === 'admin'
+    if (!isAdmin) {
+      const cls = await findMainTeacherClass(classId, getActorId(req)).lean()
+      if (!cls) return res.status(404).json({ error: 'Class not found or not your class' })
+    }
+
+    const sample = await Grade.findOne({ class: classId, subject: subjectId }).lean()
+    const updated = await Grade.updateMany(
+      { class: classId, subject: subjectId },
+      { $set: { locked: false, lockedAt: null } },
+    )
+    await GradeAuditLog.create({
+      action: 'SUBJECT_UNLOCKED',
+      scopeType: 'SUBJECT',
+      actor: getActorId(req),
+      classId,
+      subjectId,
+      from: sample ? { locked: sample.locked } : null,
+      to: { locked: false },
+    })
+    res.json({ updated: updated.modifiedCount ?? updated.nModified ?? 0 })
+  } catch (err) {
+    handleError(res, err)
+  }
+}
+
+export async function getGradeAuditLogs(req, res) {
+  try {
+    const { classId, subjectId, limit } = req.query || {}
+    const isAdmin = req.user?.role === 'admin'
+
+    const q = {}
+    if (classId) {
+      if (!mongoose.Types.ObjectId.isValid(classId)) {
+        return res.status(400).json({ error: 'Invalid classId' })
+      }
+      q.classId = classId
+    }
+    if (subjectId) {
+      if (!mongoose.Types.ObjectId.isValid(subjectId)) {
+        return res.status(400).json({ error: 'Invalid subjectId' })
+      }
+      q.subjectId = subjectId
+    }
+
+    if (!isAdmin && !classId) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    if (!isAdmin && classId) {
+      const cls = await findMainTeacherClass(classId, getActorId(req)).lean()
+      if (!cls) return res.status(403).json({ error: 'Forbidden' })
+    }
+
+    const rows = await GradeAuditLog.find(q)
+      .sort({ createdAt: -1 })
+      .limit(Math.max(1, Number(limit) || 50))
+      .lean()
+
+    res.json({ rowsCount: rows.length, rows })
   } catch (err) {
     handleError(res, err)
   }

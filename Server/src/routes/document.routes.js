@@ -71,15 +71,15 @@ const router = Router()
 router.get(
   '/preview/:id',
   verifyTokenQueryOrHeader,
-  authorizeRole('teacher'),
+  authorizeRole('teacher', 'admin'),
   previewDocument,
 )
 
 router.use(verifyToken)
 
-router.post('/folders', authorizeRole('teacher'), createFolder)
-router.get('/folders', authorizeRole('teacher'), getFolders)
-router.post('/upload', authorizeRole('teacher'), uploadSingle, uploadDocument)
-router.get('/', authorizeRole('teacher'), getDocumentsByFolder)
+router.post('/folders', authorizeRole('teacher', 'admin'), createFolder)
+router.get('/folders', authorizeRole('teacher', 'admin'), getFolders)
+router.post('/upload', authorizeRole('teacher', 'admin'), uploadSingle, uploadDocument)
+router.get('/', authorizeRole('teacher', 'admin'), getDocumentsByFolder)
 
 export default router

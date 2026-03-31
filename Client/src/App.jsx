@@ -26,12 +26,27 @@ import { StudentGradeView as StudentGradeViewPage } from './pages/StudentGradeVi
 import { Documents as DocumentsPage } from './pages/Documents.jsx'
 import { HomeworkManagement as HomeworkManagementPage } from './pages/HomeworkManagement.jsx'
 import { RedirectHome } from './components/RedirectHome.jsx'
+import { AdminRoute } from './components/AdminRoute.jsx'
+import { Unauthorized } from './pages/Unauthorized.jsx'
+import { AdminLayout } from './pages/admin/AdminLayout.jsx'
+import AdminDashboard from './pages/admin/Dashboard.jsx'
+import AdminStudents from './pages/admin/Students.jsx'
+import AdminTeachers from './pages/admin/Teachers.jsx'
+import AdminClasses from './pages/admin/Classes.jsx'
+import AdminGrades from './pages/admin/Grades.jsx'
+import AdminAttendance from './pages/admin/Attendance.jsx'
+import AdminDocuments from './pages/admin/Documents.jsx'
+import AdminReports from './pages/admin/Reports.jsx'
+import AdminSettings from './pages/admin/Settings.jsx'
+import AdminSchoolInfo from './pages/admin/SchoolInfo.jsx'
+import { ToastViewport } from './components/ui/ToastViewport.jsx'
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <SocketProvider>
+        <ToastViewport />
         <Routes>
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
@@ -47,6 +62,7 @@ export default function App() {
             <Route path="classes/:classId/attendance" element={<AttendancePage />} />
             <Route path="parent-dashboard" element={<ParentLayout />}>
               <Route index element={<ParentDashboardHome />} />
+              <Route path="messages" element={<MessagesPage />} />
               <Route path="homework" element={<ParentHomework />} />
               <Route path="attendance" element={<AttendancePage />} />
             </Route>
@@ -63,6 +79,23 @@ export default function App() {
             <Route path="students" element={<StudentManagementPage />} />
             <Route path="evaluations" element={<EvaluationPage />} />
             <Route path="behaviors" element={<Navigate to="/behavior?tab=history" replace />} />
+          <Route path="unauthorized" element={<Unauthorized />} />
+
+          <Route element={<AdminRoute />}>
+            <Route path="admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="students" element={<AdminStudents />} />
+              <Route path="teachers" element={<AdminTeachers />} />
+              <Route path="classes" element={<AdminClasses />} />
+              <Route path="classes/:classId/timetable" element={<TimetablePage />} />
+              <Route path="grades" element={<AdminGrades />} />
+              <Route path="attendance" element={<AdminAttendance />} />
+              <Route path="documents" element={<AdminDocuments />} />
+              <Route path="reports" element={<AdminReports />} />
+              <Route path="school-info" element={<AdminSchoolInfo />} />
+              <Route path="settings" element={<AdminSettings />} />
+            </Route>
+          </Route>
             <Route path="*" element={<RedirectHome />} />
           </Route>
         </Routes>

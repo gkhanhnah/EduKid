@@ -4,6 +4,9 @@ import { useAuth } from '../hooks/useAuth.js'
 /** Default landing after login or visiting `/` while authenticated. */
 export function RedirectHome() {
   const { user } = useAuth()
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin" replace />
+  }
   if (user?.role === 'parent') {
     return <Navigate to="/parent-dashboard" replace />
   }

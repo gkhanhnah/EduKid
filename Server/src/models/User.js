@@ -12,7 +12,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true, minlength: 6, select: false },
   role: {
     type: String,
-    enum: ['teacher', 'student', 'parent'],
+    enum: ['teacher', 'student', 'parent', 'admin'],
     required: true,
   },
   createdAt: { type: Date, default: Date.now },

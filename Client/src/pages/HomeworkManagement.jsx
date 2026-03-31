@@ -3,11 +3,36 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowLeft, BookOpen, Plus } from 'lucide-react'
 import { Sidebar } from '../components/Sidebar.jsx'
 import { useAuth } from '../hooks/useAuth.js'
+import { homePathForRole } from '../utils/authPaths.js'
 import { LoadingState } from '../components/LoadingState.jsx'
 import { ErrorBanner } from '../components/ErrorBanner.jsx'
 import { getClassById, getStudents } from '../services/api.js'
 import { createHomework, getHomeworks, gradeHomework } from '../services/homework.service.js'
-import { getSubjects } from '../services/grade.service.js'
+import { getSubjects, getClassGrades } from '../services/grade.service.js'
+
+/** True if any grade exists for this subject+component except this homework's synced rows. */
+function hasExternalGradesForComponent(classData, subjectId, componentName, excludeHomeworkId) {
+  if (!classData?.students?.length || !subjectId || !componentName) return false
+  const sId = String(subjectId)
+  const cName = String(componentName)
+  const excl = excludeHomeworkId != null ? String(excludeHomeworkId) : ''
+  for (const row of classData.students) {
+    for (const g of row.grades ?? []) {
+      const gSub = String(g.subject?._id ?? g.subject ?? '')
+      if (gSub !== sId) continue
+      if (String(g.componentName ?? '') !== cName) continue
+      if (
+        g.source === 'HOMEWORK' &&
+        excl &&
+        String(g.sourceId ?? '') === excl
+      ) {
+        continue
+      }
+      return true
+    }
+  }
+  return false
+}
 
 function formatDue(iso) {
   if (!iso) return '—'
@@ -91,6 +116,11 @@ export function HomeworkManagement() {
     scores: {},
   })
 
+  const [classGradesSnapshot, setClassGradesSnapshot] = useState(null)
+  const [gradesSnapshotLoading, setGradesSnapshotLoading] = useState(false)
+  const [componentConfirmOpen, setComponentConfirmOpen] = useState(false)
+  const [pendingGradeComponent, setPendingGradeComponent] = useState('')
+
   const loadStudents = useCallback(async () => {
     setStudentsLoading(true)
     setStudentsError('')
@@ -137,6 +167,8 @@ export function HomeworkManagement() {
     (hw) => {
       if (!canManageHomework) return
       setGradeError('')
+      setComponentConfirmOpen(false)
+      setPendingGradeComponent('')
       setGradingHomework(hw)
       setGradeModalOpen(true)
       setGradeBusy(false)
@@ -153,6 +185,70 @@ export function HomeworkManagement() {
     },
     [canManageHomework, loadSubjects, subjects.length, subjectsLoading],
   )
+
+  useEffect(() => {
+    if (!gradeModalOpen || !classId) {
+      setClassGradesSnapshot(null)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      setGradesSnapshotLoading(true)
+      try {
+        const data = await getClassGrades(classId)
+        if (!cancelled) setClassGradesSnapshot(data)
+      } catch {
+        if (!cancelled) setClassGradesSnapshot(null)
+      } finally {
+        if (!cancelled) setGradesSnapshotLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [gradeModalOpen, classId])
+
+  const trySetGradeComponent = useCallback(
+    (nextComponent) => {
+      if (nextComponent === gradeForm.gradeComponent) return
+      const subjectId = gradeForm.subjectId
+      if (!nextComponent || !subjectId) {
+        setGradeForm((prev) => ({ ...prev, gradeComponent: nextComponent }))
+        return
+      }
+      const hwId = gradingHomework?._id != null ? String(gradingHomework._id) : ''
+      const risky = hasExternalGradesForComponent(
+        classGradesSnapshot,
+        subjectId,
+        nextComponent,
+        hwId,
+      )
+      if (risky) {
+        setPendingGradeComponent(nextComponent)
+        setComponentConfirmOpen(true)
+        return
+      }
+      setGradeForm((prev) => ({ ...prev, gradeComponent: nextComponent }))
+    },
+    [
+      classGradesSnapshot,
+      gradeForm.subjectId,
+      gradeForm.gradeComponent,
+      gradingHomework?._id,
+    ],
+  )
+
+  const confirmGradeComponentChange = useCallback(() => {
+    const next = pendingGradeComponent
+    setComponentConfirmOpen(false)
+    setPendingGradeComponent('')
+    setGradeForm((prev) => ({ ...prev, gradeComponent: next }))
+  }, [pendingGradeComponent])
+
+  const cancelGradeComponentChange = useCallback(() => {
+    setComponentConfirmOpen(false)
+    setPendingGradeComponent('')
+  }, [])
 
   const activeSubject = useMemo(() => {
     if (!gradeForm.subjectId) return null
@@ -317,7 +413,7 @@ export function HomeworkManagement() {
   }, [])
 
   if (user?.role && user.role !== 'teacher') {
-    return <Navigate to="/parent-dashboard" replace />
+    return <Navigate to={homePathForRole(user.role)} replace />
   }
 
   return (
@@ -503,10 +599,11 @@ export function HomeworkManagement() {
             open={gradeModalOpen}
             title={`Homework grading${gradingHomework?.title ? `: ${gradingHomework.title}` : ''}`}
             onClose={() => {
-              if (gradeBusy) return
+              if (gradeBusy || componentConfirmOpen) return
               setGradeModalOpen(false)
               setGradingHomework(null)
               setGradeError('')
+              setClassGradesSnapshot(null)
             }}
           >
             <form onSubmit={handleGradeSubmit} className="space-y-4">
@@ -561,13 +658,13 @@ export function HomeworkManagement() {
                     <label className="block text-sm font-medium mb-1">Grade component *</label>
                     <select
                       value={gradeForm.gradeComponent}
-                      onChange={(e) =>
-                        setGradeForm((prev) => ({
-                          ...prev,
-                          gradeComponent: e.target.value,
-                        }))
+                      onChange={(e) => trySetGradeComponent(e.target.value)}
+                      disabled={
+                        gradeBusy ||
+                        subjectsLoading ||
+                        gradesSnapshotLoading ||
+                        !componentsForActiveSubject.length
                       }
-                      disabled={gradeBusy || subjectsLoading || !componentsForActiveSubject.length}
                       className="w-full px-4 py-3 border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary"
                     >
                       <option value="">Select component…</option>
@@ -654,6 +751,29 @@ export function HomeworkManagement() {
                 </button>
               </div>
             </form>
+          </Modal>
+
+          <Modal
+            open={componentConfirmOpen}
+            title="Grade component in use"
+            onClose={cancelGradeComponentChange}
+          >
+            <p className="text-sm text-foreground leading-relaxed">
+              This grade component is already in use or has existing grades in the gradebook.
+              Editing it may affect existing data. Do you want to continue?
+            </p>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                type="button"
+                onClick={cancelGradeComponentChange}
+                className="px-4 py-2 rounded-xl border border-border hover:bg-accent text-sm"
+              >
+                Cancel
+              </button>
+              <button type="button" onClick={confirmGradeComponentChange} className="btn btn-primary text-sm">
+                Continue
+              </button>
+            </div>
           </Modal>
 
         </div>

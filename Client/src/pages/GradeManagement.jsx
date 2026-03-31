@@ -3,6 +3,7 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Plus, Pencil, Eye, EyeOff } from 'lucide-react'
 import { Sidebar } from '../components/Sidebar.jsx'
 import { useAuth } from '../hooks/useAuth.js'
+import { homePathForRole } from '../utils/authPaths.js'
 import { LoadingState } from '../components/LoadingState.jsx'
 import { ErrorBanner } from '../components/ErrorBanner.jsx'
 import {
@@ -127,9 +128,6 @@ export function GradeManagement() {
   const [activeTab, setActiveTab] = useState('manage')
   const [draftScores, setDraftScores] = useState({})
   const [gradebookBusy, setGradebookBusy] = useState(false)
-  // Synchronous guard: prevents duplicate API calls fired before React re-renders
-  // the disabled state (React batches state updates, so gradebookBusy=true may not
-  // be reflected in the DOM immediately after setGradebookBusy is called).
   const gradebookSavingRef = useRef(false)
 
   useEffect(() => {
@@ -226,38 +224,39 @@ export function GradeManagement() {
     setDraftScores(next)
   }, [classData])
 
+  const gradebookSavingKeysRef = useRef(new Set())
+
   const handleGradebookCellBlur = useCallback(
     async (studentId, subjectId, componentName, rawValue) => {
       if (!classId || !canManageGrades) return
-      // Synchronous guard prevents a second save from firing while the first is
-      // still in-flight (React batches state, so gradebookBusy=true may not yet
-      // be reflected in the DOM when a rapid Tab/Enter sequence triggers two blurs).
-      if (gradebookSavingRef.current) return
-      gradebookSavingRef.current = true
-
       const key = gradebookCellKey(studentId, subjectId, componentName)
+
+      // Chặn double-fire cho cùng 1 cell
+      if (gradebookSavingKeysRef.current.has(key)) return
+      gradebookSavingKeysRef.current.add(key)
+
       const g = gradebookGradeMap.get(key)
       if (g?.source === 'HOMEWORK') {
-        gradebookSavingRef.current = false
+        gradebookSavingKeysRef.current.delete(key)
         return
       }
 
       const raw = String(rawValue ?? '').trim()
       if (raw === '') {
-        gradebookSavingRef.current = false
+        gradebookSavingKeysRef.current.delete(key)
         return
       }
 
       const score = Number(raw)
       if (!Number.isFinite(score)) {
         setError('Score must be a valid number.')
-        gradebookSavingRef.current = false
+        gradebookSavingKeysRef.current.delete(key)
         return
       }
 
       const prevScore = g != null ? Number(g.score) : NaN
       if (Number.isFinite(prevScore) && prevScore === score) {
-        gradebookSavingRef.current = false
+        gradebookSavingKeysRef.current.delete(key)
         return
       }
 
@@ -280,15 +279,14 @@ export function GradeManagement() {
         setError(e?.response?.data?.error || e?.message || 'Could not save grade')
         setDraftScores((prev) => ({
           ...prev,
-          [key]:
-            g != null && Number.isFinite(Number(g.score)) ? String(g.score) : prev[key] ?? '',
+          [key]: g != null && Number.isFinite(Number(g.score)) ? String(g.score) : prev[key] ?? '',
         }))
       } finally {
-        gradebookSavingRef.current = false
+        gradebookSavingKeysRef.current.delete(key)
         setGradebookBusy(false)
       }
     },
-    [classId, canManageGrades, gradebookGradeMap, gradebookSavingRef, loadAll],
+    [classId, canManageGrades, gradebookGradeMap, loadAll],
   )
 
   const activeSubject = useMemo(() => {
@@ -619,7 +617,7 @@ export function GradeManagement() {
   }, [componentsSumForActiveSubject])
 
   if (user?.role && user.role !== 'teacher') {
-    return <Navigate to="/parent-dashboard" replace />
+    return <Navigate to={homePathForRole(user.role)} replace />
   }
 
   if (loading && !classData) {
@@ -670,11 +668,10 @@ export function GradeManagement() {
                 type="button"
                 role="tab"
                 aria-selected={activeTab === 'manage'}
-                className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                  activeTab === 'manage'
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-background border-border hover:bg-accent/60'
-                }`}
+                className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${activeTab === 'manage'
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-background border-border hover:bg-accent/60'
+                  }`}
                 onClick={() => setActiveTab('manage')}
               >
                 By subject
@@ -683,11 +680,10 @@ export function GradeManagement() {
                 type="button"
                 role="tab"
                 aria-selected={activeTab === 'gradebook'}
-                className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                  activeTab === 'gradebook'
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-background border-border hover:bg-accent/60'
-                }`}
+                className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${activeTab === 'gradebook'
+                  ? 'bg-primary text-white border-primary'
+                  : 'bg-background border-border hover:bg-accent/60'
+                  }`}
                 onClick={() => setActiveTab('gradebook')}
               >
                 Gradebook
@@ -768,11 +764,10 @@ export function GradeManagement() {
                                       inputMode="decimal"
                                       step="0.5"
                                       aria-label={`${row.student?.name ?? 'Student'} — ${col.subjectName} ${col.componentName}`}
-                                      className={`w-full max-w-[5.5rem] mx-auto px-2 py-1.5 rounded-lg border text-center tabular-nums text-sm ${
-                                        homeworkLocked
-                                          ? 'bg-muted/50 border-border text-muted-foreground cursor-not-allowed'
-                                          : 'border-border bg-white'
-                                      }`}
+                                      className={`w-[5.5rem] px-2 py-1.5 rounded-lg border text-center tabular-nums text-sm ${homeworkLocked
+                                        ? 'bg-muted/50 border-border text-muted-foreground cursor-not-allowed'
+                                        : 'border-border bg-white'
+                                        }`}
                                       value={draftScores[key] ?? ''}
                                       disabled={disabled}
                                       onChange={(e) =>
@@ -787,11 +782,14 @@ export function GradeManagement() {
                                         )
                                       }
                                       onKeyDown={(e) => {
-                                        if (e.key === 'Enter') e.currentTarget.blur()
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault()
+                                          e.currentTarget.blur()
+                                        }
                                       }}
                                     />
                                     {homeworkLocked ? (
-                                      <span className="text-[0.65rem] text-muted-foreground">Homework</span>
+                                      <span className="text-[0.65rem] text-muted-foreground text-center w-[5.5rem]">Homework</span>
                                     ) : null}
                                   </div>
                                 </td>
@@ -809,264 +807,263 @@ export function GradeManagement() {
 
           {activeTab === 'manage' ? (
             <>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6">
-            <div className="lg:col-span-2 bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm">
-              <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
-                <div>
-                  <h2 className="font-semibold text-lg">Subjects</h2>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Each subject has components (e.g. Midterm, Final) with weights for the class average.
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6">
+                <div className="lg:col-span-2 bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm">
+                  <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+                    <div>
+                      <h2 className="font-semibold text-lg">Subjects</h2>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Each subject has components (e.g. Midterm, Final) with weights for the class average.
+                      </p>
+                    </div>
+                    {canManageGrades ? (
+                      <button type="button" className="btn btn-primary" onClick={openCreateSubject}>
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add subject
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {subjectWeightWarnings.length ? (
+                    <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 mb-4 text-sm text-destructive">
+                      <div className="font-semibold">Weight check (per subject)</div>
+                      <ul className="mt-2 list-disc pl-5 space-y-1">
+                        {subjectWeightWarnings.map((w) => (
+                          <li key={String(w.subjectId)}>
+                            {w.subjectName}: component weights sum to {formatNumberOrDash(w.typeWeightsSum, 2)}{' '}
+                            (expected 1.0).
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {!subjects.length ? (
+                    <p className="text-sm text-muted-foreground">No subjects yet. Add a subject to record grades.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {subjects.map((sub) => (
+                        <li
+                          key={sub._id}
+                          className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-background p-3"
+                        >
+                          <div>
+                            <div className="font-medium">{sub.name}</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {(sub.components ?? [])
+                                .map((c) => `${c.name} (${formatNumberOrDash(c.weight, 2)})`)
+                                .join(' · ') || 'No components'}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-secondary text-sm"
+                            onClick={() => openEditSubject(sub)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm">
+                  <h2 className="font-semibold text-lg mb-2">Visibility to parents</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Use Show / Hide per student for the selected subject. Only visible grades appear in the parent
+                    view.
                   </p>
                 </div>
-                {canManageGrades ? (
-                  <button type="button" className="btn btn-primary" onClick={openCreateSubject}>
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add subject
-                  </button>
+              </div>
+
+              <div className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm mb-6">
+                <h2 className="font-semibold text-lg mb-3">Grades by subject</h2>
+                <label className="field max-w-md">
+                  <span>Subject</span>
+                  <select
+                    value={selectedSubjectId}
+                    onChange={(e) => setSelectedSubjectId(e.target.value)}
+                    className="w-full rounded-xl border border-border p-2"
+                  >
+                    <option value="">Select a subject…</option>
+                    {subjects.map((s) => (
+                      <option key={s._id} value={s._id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {selectedSubjectId && subjectGradesLoading ? (
+                  <p className="text-sm text-muted-foreground mt-4">Loading grades…</p>
+                ) : null}
+
+                {selectedSubjectId && !subjectGradesLoading && activeSubjectWeightWarning ? (
+                  <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 mt-4 text-sm text-amber-900">
+                    Component weights for <span className="font-medium">{activeSubject?.name}</span> sum to{' '}
+                    {formatNumberOrDash(activeSubjectWeightWarning.componentsWeightSum, 2)} (expected 1.0).
+                  </div>
+                ) : null}
+
+                {!selectedSubjectId ? (
+                  <p className="text-sm text-muted-foreground mt-4">Choose a subject to view and edit grades.</p>
                 ) : null}
               </div>
 
-              {subjectWeightWarnings.length ? (
-                <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 mb-4 text-sm text-destructive">
-                  <div className="font-semibold">Weight check (per subject)</div>
-                  <ul className="mt-2 list-disc pl-5 space-y-1">
-                    {subjectWeightWarnings.map((w) => (
-                      <li key={String(w.subjectId)}>
-                        {w.subjectName}: component weights sum to {formatNumberOrDash(w.typeWeightsSum, 2)}{' '}
-                        (expected 1.0).
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+              {selectedSubjectId && !subjectGradesLoading ? (
+                <div className="space-y-4 md:space-y-6">
+                  {displayedStudents.map((s) => {
+                    const studentGrades = s.studentGrades
+                    const visibleCount = studentGrades.filter((g) => g.showToParent).length
+                    const totalCount = studentGrades.length
+                    const anyVisible = visibleCount > 0
+                    const avgText = s.weightedAverage == null ? '—' : formatNumberOrDash(s.weightedAverage, 2)
+                    const comps = s.components ?? []
 
-              {!subjects.length ? (
-                <p className="text-sm text-muted-foreground">No subjects yet. Add a subject to record grades.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {subjects.map((sub) => (
-                    <li
-                      key={sub._id}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-background p-3"
-                    >
-                      <div>
-                        <div className="font-medium">{sub.name}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {(sub.components ?? [])
-                            .map((c) => `${c.name} (${formatNumberOrDash(c.weight, 2)})`)
-                            .join(' · ') || 'No components'}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn btn-secondary text-sm"
-                        onClick={() => openEditSubject(sub)}
+                    return (
+                      <div
+                        key={s.student._id}
+                        className="bg-white rounded-3xl border border-border p-4 md:p-6 shadow-sm"
                       >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm">
-              <h2 className="font-semibold text-lg mb-2">Visibility to parents</h2>
-              <p className="text-sm text-muted-foreground">
-                Use Show / Hide per student for the selected subject. Only visible grades appear in the parent
-                view.
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm mb-6">
-            <h2 className="font-semibold text-lg mb-3">Grades by subject</h2>
-            <label className="field max-w-md">
-              <span>Subject</span>
-              <select
-                value={selectedSubjectId}
-                onChange={(e) => setSelectedSubjectId(e.target.value)}
-                className="w-full rounded-xl border border-border p-2"
-              >
-                <option value="">Select a subject…</option>
-                {subjects.map((s) => (
-                  <option key={s._id} value={s._id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {selectedSubjectId && subjectGradesLoading ? (
-              <p className="text-sm text-muted-foreground mt-4">Loading grades…</p>
-            ) : null}
-
-            {selectedSubjectId && !subjectGradesLoading && activeSubjectWeightWarning ? (
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 mt-4 text-sm text-amber-900">
-                Component weights for <span className="font-medium">{activeSubject?.name}</span> sum to{' '}
-                {formatNumberOrDash(activeSubjectWeightWarning.componentsWeightSum, 2)} (expected 1.0).
-              </div>
-            ) : null}
-
-            {!selectedSubjectId ? (
-              <p className="text-sm text-muted-foreground mt-4">Choose a subject to view and edit grades.</p>
-            ) : null}
-          </div>
-
-          {selectedSubjectId && !subjectGradesLoading ? (
-            <div className="space-y-4 md:space-y-6">
-              {displayedStudents.map((s) => {
-                const studentGrades = s.studentGrades
-                const visibleCount = studentGrades.filter((g) => g.showToParent).length
-                const totalCount = studentGrades.length
-                const anyVisible = visibleCount > 0
-                const avgText = s.weightedAverage == null ? '—' : formatNumberOrDash(s.weightedAverage, 2)
-                const comps = s.components ?? []
-
-                return (
-                  <div
-                    key={s.student._id}
-                    className="bg-white rounded-3xl border border-border p-4 md:p-6 shadow-sm"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                      <div>
-                        <h3 className="text-lg font-semibold">{s.student.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Weighted average: <span className="font-semibold text-primary">{avgText}</span>
-                        </p>
-                        {totalCount ? (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Parents can see {visibleCount}/{totalCount} grades for this subject.
-                          </p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground mt-1">No grades for this subject yet.</p>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {canManageGrades ? (
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={() => openAddGrade(s.student._id)}
-                            disabled={!comps.length}
-                          >
-                            <Plus className="w-4 h-4 mr-1" />
-                            Add grade
-                          </button>
-                        ) : null}
-
-                        {canManageGrades ? (
-                          <button
-                            type="button"
-                            className={`btn ${anyVisible ? 'btn-secondary' : 'btn-primary'}`}
-                            disabled={!totalCount || loading || subjectGradesLoading}
-                            onClick={() => toggleStudentShowToParents(s.student._id)}
-                          >
-                            {anyVisible ? (
-                              <>
-                                <EyeOff className="w-4 h-4 mr-1" />
-                                Hide
-                              </>
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                          <div>
+                            <h3 className="text-lg font-semibold">{s.student.name}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Weighted average: <span className="font-semibold text-primary">{avgText}</span>
+                            </p>
+                            {totalCount ? (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Parents can see {visibleCount}/{totalCount} grades for this subject.
+                              </p>
                             ) : (
-                              <>
-                                <Eye className="w-4 h-4 mr-1" />
-                                Show
-                              </>
+                              <p className="text-xs text-muted-foreground mt-1">No grades for this subject yet.</p>
                             )}
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
+                          </div>
 
-                    {comps.length ? (
-                      <div className="mt-4 overflow-x-auto">
-                        <div className="min-w-[520px]">
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            {comps.map((c) => {
-                              const g = studentGrades.find((x) => x.componentName === c.name)
-                              const visible = Boolean(g?.showToParent)
-                              return (
-                                <div
-                                  key={c.name}
-                                  className="rounded-2xl border border-border/60 bg-background p-3"
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                      <div className="font-medium">{c.name}</div>
-                                      <div className="text-xs text-muted-foreground tabular-nums mt-0.5">
-                                        Weight: {formatNumberOrDash(c.weight, 2)}
-                                      </div>
-                                    </div>
-                                    {g ? (
-                                      <span
-                                        className={`text-[0.75rem] px-2 py-1 rounded-xl border ${
-                                          visible
-                                            ? 'bg-secondary/15 border-secondary/30 text-secondary'
-                                            : 'bg-muted/40 border-border text-muted-foreground'
-                                        }`}
-                                      >
-                                        {visible ? 'Visible' : 'Hidden'}
-                                      </span>
-                                    ) : (
-                                      <span className="text-[0.75rem] px-2 py-1 rounded-xl border bg-muted/30 border-border text-muted-foreground">
-                                        Missing
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center justify-between gap-2 mt-3">
-                                    <div className="text-sm font-semibold tabular-nums">
-                                      {g ? formatNumberOrDash(g.score, 0) : '—'}
-                                    </div>
-                                    {g ? (
-                                      canManageGrades ? (
-                                        <button
-                                          type="button"
-                                          className="btn btn-secondary"
-                                          onClick={() => openEditGrade(g)}
-                                        >
-                                          <Pencil className="w-4 h-4" />
-                                        </button>
-                                      ) : null
-                                    ) : canManageGrades ? (
-                                      <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => {
-                                          setModalDraftScore('')
-                                          setModalDraftShowToParent(false)
-                                          setModalError('')
-                                          setGradeModal({
-                                            open: true,
-                                            mode: 'add',
-                                            studentId: s.student._id,
-                                            gradeId: null,
-                                            initialComponentName: c.name,
-                                          })
-                                        }}
-                                      >
-                                        <Plus className="w-4 h-4" />
-                                      </button>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              )
-                            })}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {canManageGrades ? (
+                              <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() => openAddGrade(s.student._id)}
+                                disabled={!comps.length}
+                              >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Add grade
+                              </button>
+                            ) : null}
+
+                            {canManageGrades ? (
+                              <button
+                                type="button"
+                                className={`btn ${anyVisible ? 'btn-secondary' : 'btn-primary'}`}
+                                disabled={!totalCount || loading || subjectGradesLoading}
+                                onClick={() => toggleStudentShowToParents(s.student._id)}
+                              >
+                                {anyVisible ? (
+                                  <>
+                                    <EyeOff className="w-4 h-4 mr-1" />
+                                    Hide
+                                  </>
+                                ) : (
+                                  <>
+                                    <Eye className="w-4 h-4 mr-1" />
+                                    Show
+                                  </>
+                                )}
+                              </button>
+                            ) : null}
                           </div>
                         </div>
-                      </div>
-                    ) : null}
-                  </div>
-                )
-              })}
 
-              {!displayedStudents.length ? (
-                <div className="bg-white rounded-3xl border border-border p-6 shadow-sm text-muted-foreground text-sm">
-                  No students in this class.
+                        {comps.length ? (
+                          <div className="mt-4 overflow-x-auto">
+                            <div className="min-w-[520px]">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                {comps.map((c) => {
+                                  const g = studentGrades.find((x) => x.componentName === c.name)
+                                  const visible = Boolean(g?.showToParent)
+                                  return (
+                                    <div
+                                      key={c.name}
+                                      className="rounded-2xl border border-border/60 bg-background p-3"
+                                    >
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                          <div className="font-medium">{c.name}</div>
+                                          <div className="text-xs text-muted-foreground tabular-nums mt-0.5">
+                                            Weight: {formatNumberOrDash(c.weight, 2)}
+                                          </div>
+                                        </div>
+                                        {g ? (
+                                          <span
+                                            className={`text-[0.75rem] px-2 py-1 rounded-xl border ${visible
+                                              ? 'bg-secondary/15 border-secondary/30 text-secondary'
+                                              : 'bg-muted/40 border-border text-muted-foreground'
+                                              }`}
+                                          >
+                                            {visible ? 'Visible' : 'Hidden'}
+                                          </span>
+                                        ) : (
+                                          <span className="text-[0.75rem] px-2 py-1 rounded-xl border bg-muted/30 border-border text-muted-foreground">
+                                            Missing
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center justify-between gap-2 mt-3">
+                                        <div className="text-sm font-semibold tabular-nums">
+                                          {g ? formatNumberOrDash(g.score, 0) : '—'}
+                                        </div>
+                                        {g ? (
+                                          canManageGrades ? (
+                                            <button
+                                              type="button"
+                                              className="btn btn-secondary"
+                                              onClick={() => openEditGrade(g)}
+                                            >
+                                              <Pencil className="w-4 h-4" />
+                                            </button>
+                                          ) : null
+                                        ) : canManageGrades ? (
+                                          <button
+                                            type="button"
+                                            className="btn btn-secondary"
+                                            onClick={() => {
+                                              setModalDraftScore('')
+                                              setModalDraftShowToParent(false)
+                                              setModalError('')
+                                              setGradeModal({
+                                                open: true,
+                                                mode: 'add',
+                                                studentId: s.student._id,
+                                                gradeId: null,
+                                                initialComponentName: c.name,
+                                              })
+                                            }}
+                                          >
+                                            <Plus className="w-4 h-4" />
+                                          </button>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    )
+                  })}
+
+                  {!displayedStudents.length ? (
+                    <div className="bg-white rounded-3xl border border-border p-6 shadow-sm text-muted-foreground text-sm">
+                      No students in this class.
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
-            </div>
-          ) : null}
             </>
           ) : null}
         </div>

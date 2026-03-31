@@ -594,7 +594,24 @@ function ChildDashboardPanels({ student, linkItem }) {
           </div>
         </Link>
 
-        <div className="bg-gradient-to-br from-secondary to-[#22C55E]/70 text-white rounded-3xl p-8 shadow-lg hover:shadow-xl transition-all cursor-pointer h-full">
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Scroll to full evaluation history"
+          onClick={() =>
+            document
+              .getElementById('parent-full-evaluation-history')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return
+            e.preventDefault()
+            document
+              .getElementById('parent-full-evaluation-history')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }}
+          className="bg-gradient-to-br from-secondary to-[#22C55E]/70 text-white rounded-3xl p-8 shadow-lg hover:shadow-xl transition-all cursor-pointer h-full outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-secondary"
+        >
           <Award className="w-12 h-12 mb-4" />
           <h3 className="text-[1.5rem] mb-2 font-semibold">Teacher evaluations</h3>
           <p className="text-[1rem] opacity-90">
@@ -614,7 +631,7 @@ function ChildDashboardPanels({ student, linkItem }) {
         transition={{ delay: 0.85 }}
         className="bg-white rounded-3xl p-8 shadow-lg border border-border mb-8 space-y-10"
       >
-        <div>
+        <div id="parent-full-evaluation-history">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Award className="w-5 h-5 text-primary" />
             Full evaluation history

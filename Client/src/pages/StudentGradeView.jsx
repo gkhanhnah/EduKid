@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth.js'
 import { LoadingState } from '../components/LoadingState.jsx'
 import { ErrorBanner } from '../components/ErrorBanner.jsx'
 import { getStudentGrades } from '../services/grade.service.js'
+import { homePathForRole } from '../utils/authPaths.js'
 
 function formatNumberOrDash(v, digits = 2) {
   const n = Number(v)
@@ -17,7 +18,7 @@ export function StudentGradeView() {
   const { studentId } = useParams()
 
   if (user?.role && user.role !== 'parent') {
-    return <Navigate to="/teacher" replace />
+    return <Navigate to={homePathForRole(user.role)} replace />
   }
 
   const [loading, setLoading] = useState(true)

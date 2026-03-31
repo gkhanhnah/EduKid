@@ -1,6 +1,7 @@
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { BookOpen, CalendarDays, LayoutDashboard, LogOut, MessageCircle } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth.js'
+import { homePathForRole } from '../utils/authPaths.js'
 import {
   ParentChildProvider,
   studentIdFromLink,
@@ -22,10 +23,10 @@ const parentNavItems = [
     isActive: (pathname) => pathname.startsWith('/parent-dashboard/homework'),
   },
   {
-    path: '/messages',
+    path: '/parent-dashboard/messages',
     icon: MessageCircle,
     label: 'Messages',
-    isActive: (pathname) => pathname.startsWith('/messages'),
+    isActive: (pathname) => pathname.startsWith('/parent-dashboard/messages'),
   },
   {
     path: '/parent-dashboard/attendance',
@@ -79,11 +80,10 @@ function ParentChildSwitcher() {
               key={item.linkId || sid}
               type="button"
               onClick={() => setSelectedStudentId(sid)}
-              className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm transition-all ${
-                active
+              className={`w-full truncate rounded-lg px-3 py-2 text-left text-sm transition-all ${active
                   ? 'bg-primary/15 font-medium text-primary shadow-sm'
                   : 'text-foreground hover:bg-muted/80'
-              }`}
+                }`}
             >
               {name}
             </button>
@@ -100,16 +100,23 @@ function ParentLayoutShell() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background md:flex-row">
-      <aside className="flex h-auto w-full shrink-0 flex-col border-b border-border bg-white md:h-screen md:w-64 md:border-b-0 md:border-r">
-        <div className="border-b border-border p-6">
+      <aside className="flex h-screen w-full shrink-0 flex-col border-b border-border bg-white md:w-64 md:border-b-0 md:border-r sticky top-0">
+        {/* Header: Cố định */}
+        <div className="border-b border-border p-6 shrink-0">
           <h2 className="flex items-center gap-2">
             <span className="text-[2rem]">🎒</span>
-            <span className="text-primary">ClassRoom</span>
+            <span className="text-primary font-bold">ClassRoom</span>
           </h2>
           <p className="mt-1 text-[0.875rem] text-muted-foreground">Parent</p>
         </div>
-        <ParentChildSwitcher />
-        <nav className="flex flex-1 flex-row flex-wrap gap-2 overflow-auto p-4 md:flex-col md:gap-0 md:space-y-2">
+
+        {/* Switcher: Cố định */}
+        <div className="shrink-0 p-2">
+          <ParentChildSwitcher />
+        </div>
+
+        {/* Navigation: Chỉ phần này được phép Scroll */}
+        <nav className="flex flex-1 flex-col gap-2 overflow-y-auto p-4 custom-scrollbar">
           {parentNavItems.map((item) => {
             const Icon = item.icon
             const active = item.isActive(location.pathname)
@@ -117,11 +124,10 @@ function ParentLayoutShell() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all ${
-                  active
-                    ? 'bg-primary/10 text-primary shadow-md'
+                className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all shrink-0 ${active
+                    ? 'bg-primary/10 text-primary shadow-sm font-medium'
                     : 'text-foreground hover:bg-accent'
-                }`}
+                  }`}
               >
                 <Icon className="h-5 w-5 shrink-0" />
                 <span className="text-[0.9375rem]">{item.label}</span>
@@ -129,7 +135,9 @@ function ParentLayoutShell() {
             )
           })}
         </nav>
-        <div className="border-t border-border p-4">
+
+        {/* Footer: Logout luôn nằm ở đáy */}
+        <div className="mt-auto border-t border-border p-4 shrink-0 bg-white">
           <button
             type="button"
             onClick={logout}
@@ -151,7 +159,7 @@ export function ParentLayout() {
   const { user } = useAuth()
 
   if (user?.role && user.role !== 'parent') {
-    return <Navigate to="/teacher" replace />
+    return <Navigate to={homePathForRole(user.role)} replace />
   }
 
   return (

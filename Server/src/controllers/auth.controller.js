@@ -23,8 +23,8 @@ export async function register(req, res) {
     if (typeof password !== 'string' || password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters' })
     }
-    if (!['teacher', 'student', 'parent'].includes(role)) {
-      return res.status(400).json({ error: 'role must be teacher, student, or parent' })
+    if (!['teacher', 'student', 'parent', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'role must be teacher, student, parent, or admin' })
     }
 
     const hashed = await bcrypt.hash(password, SALT_ROUNDS)

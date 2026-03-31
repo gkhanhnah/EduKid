@@ -20,6 +20,11 @@ import gradeRoutes from './routes/grade.routes.js'
 import documentRoutes from './routes/document.routes.js'
 import homeworkRoutes from './routes/homework.routes.js'
 import attendanceRoutes from './routes/attendance.routes.js'
+import adminTeacherRoutes from './routes/adminTeacher.routes.js'
+import adminReportsRoutes from './routes/adminReports.routes.js'
+import announcementRoutes from './routes/announcement.routes.js'
+import adminSettingsRoutes from './routes/adminSettings.routes.js'
+import adminSchoolRoutes from './routes/adminSchool.routes.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -49,5 +54,10 @@ app.use('/api/grades', gradeRoutes)
 app.use('/api/documents', documentRoutes)
 app.use('/api/homeworks', homeworkRoutes)
 app.use('/api/attendance', attendanceRoutes)
+app.use('/api/admin/teachers', adminTeacherRoutes)
+app.use('/api/admin/reports', adminReportsRoutes)
+app.use('/api/admin/school', adminSchoolRoutes)
+app.use('/api/admin/settings', adminSettingsRoutes)
+app.use('/api/announcements', announcementRoutes)
 
 export default app

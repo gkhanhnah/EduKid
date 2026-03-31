@@ -56,7 +56,9 @@ function serializeListClass(c, studentCount, viewerUserId) {
 
 export async function listClasses(req, res) {
   try {
-    const classes = await ClassRoom.find(classScopeFilter(req.user.id))
+    const isAdmin = req.user?.role === 'admin'
+    const query = isAdmin ? {} : classScopeFilter(req.user.id)
+    const classes = await ClassRoom.find(query)
       .populate('teacherId', 'name email')
       .populate('subjectTeachers', 'name email')
       .sort({ name: 1 })
@@ -90,11 +92,28 @@ export async function createClass(req, res) {
     if (!name?.trim()) {
       return res.status(400).json({ error: 'Name is required' })
     }
+    const isAdmin = req.user?.role === 'admin'
+
+    let teacherId = req.user.id
+    if (isAdmin && req.body.teacherId) teacherId = req.body.teacherId
+
+    if (!mongoose.Types.ObjectId.isValid(teacherId)) {
+      return res.status(400).json({ error: 'Invalid teacherId' })
+    }
+
+    if (isAdmin) {
+      const teacher = await User.findOne({ _id: teacherId, role: 'teacher' }).lean()
+      if (!teacher) return res.status(404).json({ error: 'Teacher not found' })
+    }
+
+    const subjectTeachers = Array.isArray(req.body.subjectTeachers)
+      ? req.body.subjectTeachers
+      : []
     const doc = await ClassRoom.create({
       name: name.trim(),
       grade: grade !== undefined && grade !== '' ? grade : undefined,
-      teacherId: req.user.id,
-      subjectTeachers: [],
+      teacherId,
+      subjectTeachers,
     })
     const populated = await ClassRoom.findById(doc._id)
       .populate('teacherId', 'name email')
@@ -111,9 +130,11 @@ export async function createClass(req, res) {
 /** Full detail: teachers, students, parent counts per student */
 export async function getClassById(req, res) {
   try {
+    const isAdmin = req.user?.role === 'admin'
+    const scope = isAdmin ? {} : classScopeFilter(req.user.id)
     const cls = await ClassRoom.findOne({
       _id: req.params.id,
-      ...classScopeFilter(req.user.id),
+      ...scope,
     })
       .populate('teacherId', 'name email')
       .populate('subjectTeachers', 'name email')
@@ -183,10 +204,11 @@ export async function getClassById(req, res) {
 export async function addStudentToClass(req, res) {
   try {
     const classId = req.params.id
-    const cls = await findMainTeacherClass(classId, req.user.id)
-    if (!cls) {
-      return res.status(404).json({ error: 'Class not found' })
-    }
+    const isAdmin = req.user?.role === 'admin'
+    const cls = isAdmin
+      ? await ClassRoom.findById(classId).lean()
+      : await findMainTeacherClass(classId, req.user.id).lean()
+    if (!cls) return res.status(404).json({ error: 'Class not found' })
 
     const { studentId, name, age, gender, photoUrl } = req.body
 
@@ -198,11 +220,11 @@ export async function addStudentToClass(req, res) {
       if (!student) {
         return res.status(404).json({ error: 'Student not found' })
       }
-      const fromClass = await findClassForTeacher(student.classId, req.user.id)
-      if (!fromClass) {
-        return res
-          .status(403)
-          .json({ error: 'Student is not in a class you manage' })
+      if (!isAdmin) {
+        const fromClass = await findClassForTeacher(student.classId, req.user.id)
+        if (!fromClass) {
+          return res.status(403).json({ error: 'Student is not in a class you manage' })
+        }
       }
       if (String(student.classId) === String(classId)) {
         return res.status(400).json({ error: 'Student is already in this class' })
@@ -241,7 +263,10 @@ export async function addStudentToClass(req, res) {
 export async function addSubjectTeacher(req, res) {
   try {
     const classId = req.params.id
-    const cls = await findMainTeacherClass(classId, req.user.id).lean()
+    const isAdmin = req.user?.role === 'admin'
+    const cls = isAdmin
+      ? await ClassRoom.findById(classId).lean()
+      : await findMainTeacherClass(classId, req.user.id).lean()
     if (!cls) {
       return res.status(404).json({ error: 'Class not found or not your class' })
     }
@@ -434,7 +459,9 @@ export async function updateClass(req, res) {
   try {
     const { name, grade } = req.body
     if (name === undefined && grade === undefined) {
-      const existing = await findMainTeacherClass(req.params.id, req.user.id).lean()
+      const existing = req.user?.role === 'admin'
+        ? await ClassRoom.findById(req.params.id).lean()
+        : await findMainTeacherClass(req.params.id, req.user.id).lean()
       if (!existing) {
         return res.status(404).json({ error: 'Class not found' })
       }
@@ -444,8 +471,9 @@ export async function updateClass(req, res) {
     if (name != null) updates.name = String(name).trim()
     if (grade !== undefined) updates.grade = grade
 
+    const isAdmin = req.user?.role === 'admin'
     const cls = await ClassRoom.findOneAndUpdate(
-      { _id: req.params.id, teacherId: req.user.id },
+      isAdmin ? { _id: req.params.id } : { _id: req.params.id, teacherId: req.user.id },
       updates,
       { new: true, runValidators: true },
     )
@@ -470,10 +498,10 @@ export async function deleteClass(req, res) {
         .status(400)
         .json({ error: 'Cannot delete class that still has students' })
     }
-    const cls = await ClassRoom.findOneAndDelete({
-      _id: req.params.id,
-      teacherId: req.user.id,
-    }).lean()
+    const isAdmin = req.user?.role === 'admin'
+    const cls = await ClassRoom.findOneAndDelete(
+      isAdmin ? { _id: req.params.id } : { _id: req.params.id, teacherId: req.user.id },
+    ).lean()
     if (!cls) {
       return res.status(404).json({ error: 'Class not found' })
     }

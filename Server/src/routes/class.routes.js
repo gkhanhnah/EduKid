@@ -15,7 +15,8 @@ import {
 
 const router = Router()
 
-router.use(verifyToken, authorizeRole('teacher'))
+// Teacher manages their own classes; admin can manage all classes.
+router.use(verifyToken, authorizeRole('teacher', 'admin'))
 
 router.get('/', listClasses)
 router.post('/', createClass)
