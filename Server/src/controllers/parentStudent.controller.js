@@ -32,9 +32,12 @@ export async function createParentStudentLink(req, res) {
       return res.status(400).json({ error: 'studentId is required' })
     }
 
-    const owned = await assertStudentOwnedByTeacher(studentId, req.user.id)
-    if (!owned) {
-      return res.status(404).json({ error: 'Student not found or not in your classes' })
+    const isAdmin = req.user?.role === 'admin'
+    if (!isAdmin) {
+      const owned = await assertStudentOwnedByTeacher(studentId, req.user.id)
+      if (!owned) {
+        return res.status(404).json({ error: 'Student not found or not in your classes' })
+      }
     }
 
     let resolvedParentId = parentUserId

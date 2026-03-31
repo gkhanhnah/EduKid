@@ -4,6 +4,6 @@ import { createParentStudentLink } from '../controllers/parentStudent.controller
 
 const router = Router()
 
-router.post('/', verifyToken, authorizeRole('teacher'), createParentStudentLink)
+router.post('/', verifyToken, authorizeRole('teacher', 'admin'), createParentStudentLink)
 
 export default router

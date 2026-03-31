@@ -4,7 +4,8 @@ import { getTimetableByClass, saveTimetable } from '../controllers/timetable.con
 
 const router = Router()
 
-router.use(verifyToken, authorizeRole('teacher', 'parent'))
+// Allow admin to manage and view all timetables.
+router.use(verifyToken, authorizeRole('teacher', 'parent', 'admin'))
 
 router.post('/', saveTimetable)
 router.get('/:classId', getTimetableByClass)

@@ -96,6 +96,7 @@ export async function createFolder(req, res) {
 
 export async function getFolders(req, res) {
   try {
+    const isAdmin = req.user?.role === 'admin'
     const { parentId } = req.query
     const filter = {}
     if (parentId === 'null' || parentId === '') {
@@ -109,7 +110,7 @@ export async function getFolders(req, res) {
 
     const folders = await Folder.find({
       ...filter,
-      createdBy: req.user?.id || null,
+      ...(isAdmin ? {} : { createdBy: req.user?.id || null }),
     })
       .sort({ name: 1 })
       .lean()
@@ -134,7 +135,7 @@ export async function uploadDocument(req, res) {
     if (!folder) {
       return res.status(404).json({ error: 'Folder not found' })
     }
-    if (String(folder.createdBy) !== String(req.user?.id)) {
+    if (req.user?.role !== 'admin' && String(folder.createdBy) !== String(req.user?.id)) {
       return res.status(403).json({ error: 'Forbidden' })
     }
 
@@ -162,6 +163,7 @@ export async function uploadDocument(req, res) {
 
 export async function getDocumentsByFolder(req, res) {
   try {
+    const isAdmin = req.user?.role === 'admin'
     const folderId = req.query?.folderId
     if (!folderId || !mongoose.Types.ObjectId.isValid(folderId)) {
       return res.status(400).json({ error: 'folderId query is required' })
@@ -172,15 +174,19 @@ export async function getDocumentsByFolder(req, res) {
       return res.status(404).json({ error: 'Folder not found' })
     }
 
-    if (String(folder.createdBy) !== String(req.user?.id)) {
+    if (!isAdmin && String(folder.createdBy) !== String(req.user?.id)) {
       return res.status(403).json({ error: 'Forbidden' })
     }
 
     const userId = req.user?.id || null
     const documents = await DocumentModel.find({
       folderId,
-      // Allow legacy documents with uploadedBy=null, as long as the folder is owned.
-      $or: [{ uploadedBy: userId }, { uploadedBy: null }],
+      ...(isAdmin
+        ? {}
+        : {
+            // Allow legacy documents with uploadedBy=null, as long as the folder is owned.
+            $or: [{ uploadedBy: userId }, { uploadedBy: null }],
+          }),
     })
       .sort({ createdAt: -1 })
       .populate('uploadedBy', 'name email')
@@ -212,11 +218,14 @@ export async function previewDocument(req, res) {
       return sendFail(404, 'Document not found')
     }
     const folder = await Folder.findById(doc.folderId).lean()
-    const ownedByFolder = Boolean(folder && String(folder.createdBy) === String(req.user?.id))
-    const ownedByDoc =
-      Boolean(doc.uploadedBy) && String(doc.uploadedBy) === String(req.user?.id)
-    if (!ownedByFolder && !ownedByDoc) {
-      return sendFail(403, 'Forbidden')
+    const isAdmin = req.user?.role === 'admin'
+    if (!isAdmin) {
+      const ownedByFolder = Boolean(folder && String(folder.createdBy) === String(req.user?.id))
+      const ownedByDoc =
+        Boolean(doc.uploadedBy) && String(doc.uploadedBy) === String(req.user?.id)
+      if (!ownedByFolder && !ownedByDoc) {
+        return sendFail(403, 'Forbidden')
+      }
     }
 
     const filePath = resolveStoredFilePath(doc.fileUrl)

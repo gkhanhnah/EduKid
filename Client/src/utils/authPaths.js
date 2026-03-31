@@ -17,6 +17,7 @@ function isAllowedReturnPathForParent(pathname) {
 }
 
 export function homePathForRole(role) {
+  if (role === 'admin') return '/admin'
   if (role === 'parent') return '/parent-dashboard'
   return '/teacher'
 }
@@ -36,6 +37,12 @@ export function pathAfterAuth(role, fromPathname) {
 
   if (role === 'teacher') {
     if (isParentExclusivePath(fromPathname)) return home
+    return fromPathname
+  }
+
+  if (role === 'admin') {
+    if (isParentExclusivePath(fromPathname)) return home
+    if (fromPathname === '/teacher' || fromPathname.startsWith('/teacher/')) return home
     return fromPathname
   }
 

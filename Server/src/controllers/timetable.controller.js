@@ -105,7 +105,8 @@ async function assertParentCanViewClass(parentUserId, classId) {
 
 export async function saveTimetable(req, res) {
   try {
-    if (req.user.role !== 'teacher') {
+    const isAdmin = req.user?.role === 'admin'
+    if (req.user.role !== 'teacher' && !isAdmin) {
       return res.status(403).json({ error: 'Forbidden' })
     }
 
@@ -114,11 +115,10 @@ export async function saveTimetable(req, res) {
       return badRequest(res, 'Invalid classId')
     }
 
-    // Only main teacher can save timetables.
-    const cls = await findMainTeacherClass(classId, req.user.id).lean()
-    if (!cls) {
-      return res.status(403).json({ error: 'Only main teacher can save timetable' })
-    }
+    const cls = isAdmin
+      ? await ClassRoom.findById(classId).lean()
+      : await findMainTeacherClass(classId, req.user.id).lean()
+    if (!cls) return res.status(403).json({ error: 'Only main teacher can save timetable' })
 
     let normalized
     try {
@@ -163,6 +163,8 @@ export async function getTimetableByClass(req, res) {
       if (!canView) {
         return res.status(403).json({ error: 'You are not linked to this class' })
       }
+    } else if (req.user.role === 'admin') {
+      // Admin can view timetables for any class.
     } else {
       return res.status(403).json({ error: 'Forbidden' })
     }

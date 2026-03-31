@@ -31,7 +31,8 @@ export function Timetable() {
   const { user } = useAuth()
   const isTeacher = user?.role === 'teacher'
   const isParent = user?.role === 'parent'
-  const backHref = isParent ? '/parent-dashboard' : `/classes/${classId}`
+  const isAdmin = user?.role === 'admin'
+  const backHref = isAdmin ? '/admin/classes' : isParent ? '/parent-dashboard' : `/classes/${classId}`
   const userId = user?.id
 
   const [loading, setLoading] = useState(true)
@@ -53,14 +54,14 @@ export function Timetable() {
         data?.class?.teacherId?._id ?? data?.class?.teacherId ?? null
       const isMainTeacher =
         Boolean(isTeacher && userId && mainTeacherId && String(mainTeacherId) === String(userId))
-      setEditing(Boolean(isMainTeacher && (!data?.schedule || data.schedule.length === 0)))
+      setEditing(Boolean((isAdmin || isMainTeacher) && (!data?.schedule || data.schedule.length === 0)))
     } catch (e) {
       setDetail(null)
       setError(e?.response?.data?.error || e?.message || 'Failed to load timetable')
     } finally {
       setLoading(false)
     }
-  }, [classId, isTeacher, userId])
+  }, [classId, isAdmin, isTeacher, userId])
 
   useEffect(() => {
     load()
@@ -83,11 +84,12 @@ export function Timetable() {
   }, [detail])
 
   const canEdit = useMemo(() => {
+    if (isAdmin) return true
     if (!detail?.class?.teacherId) return false
     if (!isTeacher || !userId) return false
     const mainTeacherId = detail.class.teacherId?._id ?? detail.class.teacherId
     return Boolean(mainTeacherId && String(mainTeacherId) === String(userId))
-  }, [detail, isTeacher, userId])
+  }, [detail, isAdmin, isTeacher, userId])
 
   const maxPeriods = useMemo(() => {
     return Math.max(
@@ -150,16 +152,16 @@ export function Timetable() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-background">
-      <Sidebar />
-      <div className="flex-1 overflow-auto p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
+    <div className={isAdmin ? '' : 'flex min-h-screen flex-col md:flex-row bg-background'}>
+      {isAdmin ? null : <Sidebar />}
+      <div className={isAdmin ? '' : 'flex-1 overflow-auto p-4 md:p-8'}>
+        <div className={isAdmin ? 'space-y-6' : 'max-w-7xl mx-auto'}>
           <Link
             to={backHref}
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
-            {isParent ? 'Back to dashboard' : 'Back to class'}
+            {isAdmin ? 'Back to classes' : isParent ? 'Back to dashboard' : 'Back to class'}
           </Link>
 
           {loading ? (

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.js'
+import { homePathForRole } from '../utils/authPaths.js'
 import { useStudents } from '../hooks/useStudents.js'
 import { useEvaluations } from '../hooks/useEvaluations.js'
 import { submitEvaluation } from '../services/evaluationService.js'
@@ -10,6 +11,7 @@ import { Sidebar } from '../components/Sidebar.jsx'
 import { ClipboardCheck } from 'lucide-react'
 
 const EMPTY_FORM = {
+  classId: '',
   studentId: '',
   comment: '',
   period: '',
@@ -50,17 +52,41 @@ export function Evaluation() {
   const [averagesLoading, setAveragesLoading] = useState(false)
   const [averagesError, setAveragesError] = useState('')
   const [averagesSubjects, setAveragesSubjects] = useState([])
-  const [mainClassIds, setMainClassIds] = useState([])
+  const [mainClasses, setMainClasses] = useState([])
+  const [mainClassesResolved, setMainClassesResolved] = useState(false)
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
 
+  const mainClassIds = useMemo(
+    () => mainClasses.map((c) => String(c._id)),
+    [mainClasses],
+  )
+
   const selectedStudent = students.find((s) => String(s._id) === String(form.studentId))
-  const selectedClassId = String(selectedStudent?.classId?._id ?? selectedStudent?.classId ?? '')
-  const canManageEvaluations = Boolean(selectedClassId && mainClassIds.includes(selectedClassId))
+  const studentClassId = String(selectedStudent?.classId?._id ?? selectedStudent?.classId ?? '')
+  const canManageEvaluations = Boolean(
+    form.classId &&
+      form.studentId &&
+      mainClassIds.includes(String(form.classId)) &&
+      studentClassId === String(form.classId),
+  )
+  const canUseSubmitForm = mainClassesResolved && mainClasses.length > 0
+
+  const studentsInSelectedClass = useMemo(() => {
+    if (!form.classId) return []
+    const cid = String(form.classId)
+    return students.filter(
+      (s) => String(s.classId?._id ?? s.classId ?? '') === cid,
+    )
+  }, [students, form.classId])
 
   function handleFormChange(e) {
     const { name, value } = e.target
+    if (name === 'classId') {
+      setForm((prev) => ({ ...prev, classId: value, studentId: '' }))
+      return
+    }
     setForm((prev) => ({ ...prev, [name]: value }))
   }
 
@@ -68,17 +94,17 @@ export function Evaluation() {
     let cancelled = false
     async function loadMainClasses() {
       if (user?.role !== 'teacher') return
+      setMainClassesResolved(false)
       try {
         const d = await getClasses()
         if (cancelled) return
-        const ids = Array.isArray(d)
-          ? d.filter((c) => c?.isMainTeacher).map((c) => String(c._id))
-          : []
-        setMainClassIds(ids)
+        const list = Array.isArray(d) ? d.filter((c) => c?.isMainTeacher) : []
+        setMainClasses(list)
       } catch {
-        // If the class list fails, keep the UI read-only.
         if (cancelled) return
-        setMainClassIds([])
+        setMainClasses([])
+      } finally {
+        if (!cancelled) setMainClassesResolved(true)
       }
     }
     loadMainClasses()
@@ -120,13 +146,18 @@ export function Evaluation() {
     setFormError('')
     setSuccess(false)
 
+    if (!form.classId) {
+      setFormError('Select a class.')
+      return
+    }
+
     if (!form.studentId) {
       setFormError('Select a student.')
       return
     }
 
     if (!canManageEvaluations) {
-      setFormError('Read-only: only Main teacher can submit evaluations for this student.')
+      setFormError('Choose a class where you are the main teacher and a student from that class.')
       return
     }
     if (!form.period?.trim()) {
@@ -163,7 +194,7 @@ export function Evaluation() {
   }
 
   if (user?.role !== 'teacher') {
-    return <Navigate to="/parent-dashboard" replace />
+    return <Navigate to={homePathForRole(user?.role)} replace />
   }
 
   return (
@@ -181,7 +212,14 @@ export function Evaluation() {
 
           <section className="bg-white rounded-3xl border border-border shadow-lg p-6 mb-8">
             <h2 className="text-lg font-medium mb-4">New evaluation</h2>
-            {canManageEvaluations ? (
+            {!mainClassesResolved ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : !canUseSubmitForm ? (
+              <p className="text-sm text-muted-foreground">
+                Read-only: only the main teacher for a class can submit evaluations. You can
+                view evaluations below when they are added.
+              </p>
+            ) : (
               <>
                 {success ? (
                   <p className="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-2">
@@ -195,21 +233,46 @@ export function Evaluation() {
                 ) : null}
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
+                    <label className="block text-sm font-medium mb-1">Class *</label>
+                    <select
+                      name="classId"
+                      value={form.classId}
+                      onChange={handleFormChange}
+                      className="w-full px-4 py-3 border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Select class (main teacher only)…</option>
+                      {mainClasses.map((c) => (
+                        <option key={c._id} value={String(c._id)}>
+                          {[c.name, c.grade].filter(Boolean).join(' · ') || 'Class'}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Only classes where you are the homeroom (main) teacher are listed.
+                    </p>
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-medium mb-1">Student *</label>
                     <select
                       name="studentId"
                       value={form.studentId}
                       onChange={handleFormChange}
-                      disabled={studentsLoading}
-                      className="w-full px-4 py-3 border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+                      disabled={studentsLoading || !form.classId}
+                      className="w-full px-4 py-3 border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
                     >
-                      <option value="">Select student…</option>
-                      {students.map((s) => (
+                      <option value="">
+                        {form.classId ? 'Select student…' : 'Choose a class first'}
+                      </option>
+                      {studentsInSelectedClass.map((s) => (
                         <option key={s._id} value={s._id}>
                           {s.name}
                         </option>
                       ))}
                     </select>
+                    {form.classId && !studentsInSelectedClass.length ? (
+                      <p className="mt-1 text-xs text-muted-foreground">No students in this class.</p>
+                    ) : null}
                   </div>
 
                   <div className="rounded-3xl border border-border bg-white p-4">
@@ -259,17 +322,13 @@ export function Evaluation() {
                   </div>
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || !canManageEvaluations}
                     className="bg-primary text-white px-6 py-3 rounded-xl disabled:opacity-60"
                   >
                     {submitting ? 'Saving…' : 'Submit evaluation'}
                   </button>
                 </form>
               </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Read-only: only Main teacher can submit evaluations for the selected student.
-              </p>
             )}
           </section>
 
@@ -301,7 +360,11 @@ export function Evaluation() {
               <p className="text-destructive py-4">{error}</p>
             ) : evaluations.length === 0 ? (
               <p className="text-muted-foreground py-8 text-center">
-                No evaluations yet. Submit one using the form above.
+                {!mainClassesResolved
+                  ? 'No evaluations yet.'
+                  : canUseSubmitForm
+                    ? 'No evaluations yet. Submit one using the form above.'
+                    : 'No evaluations yet. When the class main teacher adds evaluations, they will appear here.'}
               </p>
             ) : (
               <ul className="divide-y divide-border">

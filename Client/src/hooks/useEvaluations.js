@@ -25,8 +25,32 @@ export function useEvaluations(options = {}) {
   }, [studentId])
 
   useEffect(() => {
-    refresh()
-  }, [refresh])
+    let cancelled = false
+
+    async function load() {
+      setLoading(true)
+      setError(null)
+      try {
+        const params = studentId ? { studentId } : {}
+        const data = await getEvaluations(params)
+        if (cancelled) return
+        setEvaluations(Array.isArray(data) ? data : [])
+      } catch (e) {
+        if (cancelled) return
+        const msg =
+          e?.response?.data?.error || e?.message || 'Failed to load evaluations'
+        setError(msg)
+        setEvaluations([])
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [studentId])
 
   return { evaluations, loading, error, refresh }
 }

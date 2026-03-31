@@ -54,3 +54,39 @@ export async function getGradesAverage(studentId) {
   const { data } = await httpClient.get('/grades/average', { params: { studentId } })
   return data
 }
+
+export async function submitGradesForSubject({ classId, subjectId }) {
+  const { data } = await httpClient.post('/grades/workflow/submit', { classId, subjectId })
+  return data
+}
+
+export async function approveGradesForSubject({ classId, subjectId }) {
+  const { data } = await httpClient.post('/grades/workflow/approve', { classId, subjectId })
+  return data
+}
+
+export async function rejectGradesForSubject({ classId, subjectId, rejectionReason }) {
+  const { data } = await httpClient.post('/grades/workflow/reject', {
+    classId,
+    subjectId,
+    rejectionReason,
+  })
+  return data
+}
+
+export async function lockGradesForSubject({ classId, subjectId }) {
+  const { data } = await httpClient.post('/grades/workflow/lock', { classId, subjectId })
+  return data
+}
+
+export async function unlockGradesForSubject({ classId, subjectId }) {
+  const { data } = await httpClient.post('/grades/workflow/unlock', { classId, subjectId })
+  return data
+}
+
+export async function getGradeAuditLogs({ classId, subjectId, limit }) {
+  const { data } = await httpClient.get('/grades/audit', {
+    params: { classId, subjectId, limit },
+  })
+  return data
+}

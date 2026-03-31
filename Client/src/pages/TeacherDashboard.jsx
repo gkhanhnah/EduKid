@@ -24,6 +24,7 @@ import {
 import { Sidebar } from '../components/Sidebar.jsx'
 import { useAuth } from '../hooks/useAuth.js'
 import { fetchTeacherDashboard } from '../services/dashboardService.js'
+import { homePathForRole } from '../utils/authPaths.js'
 
 const CHART_COLORS = {
   good: '#22c55e',
@@ -77,7 +78,7 @@ export function TeacherDashboard() {
   const greetingName = user?.name?.split(' ')[0] || 'Teacher'
 
   if (user?.role && user.role !== 'teacher') {
-    return <Navigate to="/parent-dashboard" replace />
+    return <Navigate to={homePathForRole(user.role)} replace />
   }
 
   return (

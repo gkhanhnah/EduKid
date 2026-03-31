@@ -25,9 +25,21 @@ function formatTime(iso) {
 
 function mergeDedupe(prev, msg) {
   const id = msg?._id != null ? String(msg._id) : null
-  if (!id) return prev
-  const exists = prev.some((m) => String(m._id) === id)
-  return exists ? prev : [...prev, msg]
+  const cid =
+    typeof msg?.clientMessageId === 'string' && msg.clientMessageId.trim()
+      ? String(msg.clientMessageId).trim()
+      : null
+  if (id || cid) {
+    const exists = prev.some((m) => {
+      if (id && String(m._id) === id) return true
+      if (!cid) return false
+      const mc =
+        typeof m?.clientMessageId === 'string' ? String(m.clientMessageId).trim() : ''
+      return mc === cid
+    })
+    return exists ? prev : [...prev, msg]
+  }
+  return [...prev, msg]
 }
 
 function renderContentWithHighlights({ content, msgMentions, isTagAll, meId }) {
@@ -85,6 +97,8 @@ export function GroupChat() {
   const [messages, setMessages] = useState([])
 
   const [messageText, setMessageText] = useState('')
+  /** Keeps latest draft in sync with the textarea DOM (Enter can fire before React commits last onChange). */
+  const messageTextRef = useRef('')
   const [sendError, setSendError] = useState('')
   const [sending, setSending] = useState(false)
   const sendingRef = useRef(false)
@@ -106,8 +120,16 @@ export function GroupChat() {
       setParticipants(Array.isArray(data?.participants) ? data.participants : [])
       setViewerIsMainTeacher(Boolean(data?.viewer?.isMainTeacher))
       const list = Array.isArray(data?.messages) ? data.messages : []
-      // Reset dedupe cache when switching classes.
-      seenMessageIdsRef.current = new Set(list.map((m) => (m?._id != null ? String(m._id) : '')))
+      const seen = new Set()
+      for (const m of list) {
+        if (m?._id != null) seen.add(String(m._id))
+        const cid =
+          typeof m?.clientMessageId === 'string' && m.clientMessageId.trim()
+            ? String(m.clientMessageId).trim()
+            : ''
+        if (cid) seen.add(`cid:${cid}`)
+      }
+      seenMessageIdsRef.current = seen
       setMessages(list)
     } catch (e) {
       setError(e?.response?.data?.error || e?.message || 'Could not load chat')
@@ -188,8 +210,14 @@ export function GroupChat() {
 
     function onReceive(msg) {
       const mid = msg?._id != null ? String(msg._id) : null
+      const cid =
+        typeof msg?.clientMessageId === 'string' && msg.clientMessageId.trim()
+          ? String(msg.clientMessageId).trim()
+          : null
       if (mid && seenMessageIdsRef.current.has(mid)) return
+      if (cid && seenMessageIdsRef.current.has(`cid:${cid}`)) return
       if (mid) seenMessageIdsRef.current.add(mid)
+      if (cid) seenMessageIdsRef.current.add(`cid:${cid}`)
       setMessages((prev) => mergeDedupe(prev, msg))
     }
 
@@ -232,7 +260,8 @@ export function GroupChat() {
     if (!connected) return
     if (!classId) return
 
-    const text = messageText.trim()
+    const raw = typeof messageTextRef.current === 'string' ? messageTextRef.current : ''
+    const text = raw.trim()
     if (!text) {
       setSendError('Message is required')
       return
@@ -241,56 +270,62 @@ export function GroupChat() {
     setSendError('')
     setSending(true)
     sendingRef.current = true
-    try {
-      const clientMessageId =
-        typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
-      const { mentions, isTagAll } = computeMentionsAndTagAllFromText(text)
+    const clientMessageId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
-      s.emit(
-        'SEND_GROUP_MESSAGE',
-        {
-          classId,
-          message: text,
-          mentions,
-          isTagAll,
-          clientMessageId,
-        },
-        (res) => {
-          if (!res?.ok) {
-            setSendError(res?.error || 'Could not send message')
-          }
-        },
-      )
+    const { mentions, isTagAll } = computeMentionsAndTagAllFromText(text)
 
-      setMessageText('')
-      setMentionOpen(false)
-      setMentionQuery('')
-    } finally {
-      setSending(false)
+    const releaseSend = () => {
       sendingRef.current = false
+      setSending(false)
     }
-  }, [
-    sending,
-    socketRef,
-    connected,
-    classId,
-    messageText,
-    participantHandles,
-    viewerIsMainTeacher,
-  ])
+
+    const ackTimeout = setTimeout(() => {
+      releaseSend()
+    }, 12_000)
+
+    messageTextRef.current = ''
+    setMessageText('')
+    setMentionOpen(false)
+    setMentionQuery('')
+
+    s.emit(
+      'SEND_GROUP_MESSAGE',
+      {
+        classId,
+        message: text,
+        mentions,
+        isTagAll,
+        clientMessageId,
+      },
+      (res) => {
+        clearTimeout(ackTimeout)
+        if (!res?.ok) {
+          setSendError(res?.error || 'Could not send message')
+          messageTextRef.current = text
+          setMessageText(text)
+        }
+        releaseSend()
+      },
+    )
+  }, [sending, socketRef, connected, classId, participantHandles, viewerIsMainTeacher])
 
   function insertMention(handle) {
     const raw = messageText || ''
     const lastAt = raw.lastIndexOf('@')
     if (lastAt < 0) {
-      setMessageText(`${raw} @${handle} `)
+      const next = `${raw} @${handle} `
+      messageTextRef.current = next
+      setMessageText(next)
       return
     }
     const before = raw.slice(0, lastAt)
-    setMessageText(`${before}@${handle} `)
+    const next = `${before}@${handle} `
+    messageTextRef.current = next
+    setMessageText(next)
     setMentionOpen(false)
     setMentionQuery('')
   }
@@ -300,7 +335,9 @@ export function GroupChat() {
     const raw = messageText || ''
     if (/(?:^|\s)@all\b/i.test(raw)) return
     const next = raw.trimEnd()
-    setMessageText(next ? `${next} @all ` : '@all ')
+    const tag = next ? `${next} @all ` : '@all '
+    messageTextRef.current = tag
+    setMessageText(tag)
   }
 
   const myIdStr = meId != null ? String(meId) : ''
@@ -463,21 +500,16 @@ export function GroupChat() {
                     <div className="flex items-end gap-2">
                       <textarea
                         value={messageText}
-                        onChange={(e) => setMessageText(e.target.value)}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          messageTextRef.current = v
+                          setMessageText(v)
+                        }}
                         onKeyDown={(e) => {
-                          // Prevent accidental sends:
-                          // - Enter: send
-                          // - Shift+Enter: insert newline only
-                          if (e.key !== 'Enter') return
-
-                          if (e.shiftKey) {
-                            e.preventDefault()
-                            setMessageText((prev) => `${prev}\n`)
+                          if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing)
                             return
-                          }
-
                           e.preventDefault()
-                          handleSend()
+                          void handleSend()
                         }}
                         placeholder="Write a message…"
                         className="flex-1 min-h-[48px] max-h-40 p-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary resize-y"

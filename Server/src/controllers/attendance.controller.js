@@ -74,10 +74,13 @@ export async function upsertAttendance(req, res) {
     const student = await Student.findById(studentId).lean()
     if (!student) return res.status(404).json({ error: 'Student not found' })
 
-    // Only main teacher can save attendance.
-    const cls = await findMainTeacherClass(student.classId, req.user.id).lean()
-    if (!cls) {
-      return res.status(403).json({ error: 'You do not belong to this class' })
+    const isAdmin = req.user?.role === 'admin'
+    if (!isAdmin) {
+      // Only main teacher can save attendance (teacher role).
+      const cls = await findMainTeacherClass(student.classId, req.user.id).lean()
+      if (!cls) {
+        return res.status(403).json({ error: 'You do not belong to this class' })
+      }
     }
 
     const setFields = {
@@ -209,6 +212,39 @@ export async function getAttendanceByDate(req, res) {
       })
     }
 
+    if (role === 'admin') {
+      const { classId } = req.query || {}
+      if (classId != null && classId !== '' && !mongoose.Types.ObjectId.isValid(classId)) {
+        return badRequest(res, 'Invalid classId')
+      }
+
+      const students = classId
+        ? await Student.find({ classId }).select('_id name classId').lean()
+        : await Student.find({}).select('_id name classId').lean()
+
+      const studentIds = students.map((s) => s._id)
+      const records = studentIds.length
+        ? await Attendance.find({ studentId: { $in: studentIds }, date: normalizedDate }).lean()
+        : []
+
+      const recordMap = new Map(records.map((r) => [String(r.studentId), r]))
+      const studentsWithStatus = students.map((s) => {
+        const rec = recordMap.get(String(s._id))
+        return {
+          studentId: s._id,
+          student: { _id: s._id, name: s.name, classId: s.classId },
+          status: rec ? rec.status : null,
+          published: rec ? rec.published : null,
+          note: rec ? rec.note : null,
+        }
+      })
+
+      return res.json({
+        date: dateStr,
+        students: studentsWithStatus,
+      })
+    }
+
     return res.status(403).json({ error: 'Forbidden' })
   } catch (err) {
     handleError(res, err)
@@ -230,9 +266,12 @@ export async function publishAttendanceForDate(req, res) {
       published === undefined ? true : typeof published === 'boolean' ? published : null
     if (nextPublished === null) return badRequest(res, 'published must be boolean')
 
-    const cls = await findMainTeacherClass(classId, req.user.id).lean()
-    if (!cls) {
-      return res.status(403).json({ error: 'You do not belong to this class' })
+    const isAdmin = req.user?.role === 'admin'
+    if (!isAdmin) {
+      const cls = await findMainTeacherClass(classId, req.user.id).lean()
+      if (!cls) {
+        return res.status(403).json({ error: 'You do not belong to this class' })
+      }
     }
 
     const studentIds = await Student.find({ classId }).select('_id').lean()

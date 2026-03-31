@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { Sidebar } from '../components/Sidebar.jsx'
 import { useAuth } from '../hooks/useAuth.js'
+import { homePathForRole } from '../utils/authPaths.js'
 import { LoadingState } from '../components/LoadingState.jsx'
 import { ErrorBanner } from '../components/ErrorBanner.jsx'
 import {
@@ -308,7 +309,7 @@ export function Documents() {
     (!currentFolderId || (!docsLoading && filteredDocuments.length === 0))
 
   if (user?.role && user.role !== 'teacher') {
-    return <Navigate to="/parent-dashboard" replace />
+    return <Navigate to={homePathForRole(user.role)} replace />
   }
 
   return (

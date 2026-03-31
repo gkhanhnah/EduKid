@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Calendar, Loader2, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth.js'
+import { homePathForRole } from '../utils/authPaths.js'
 import { Sidebar } from '../components/Sidebar.jsx'
 import { getClassById } from '../services/api.js'
 import {
@@ -196,8 +197,7 @@ export function Attendance() {
   }
 
   if (!isTeacher && !isParent) {
-    navigate('/teacher')
-    return null
+    return <Navigate to={homePathForRole(user?.role)} replace />
   }
 
   if (isTeacher && !accessChecked) {

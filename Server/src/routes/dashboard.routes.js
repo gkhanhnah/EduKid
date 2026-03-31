@@ -3,6 +3,8 @@ import { verifyToken, authorizeRole } from '../middleware/auth.middleware.js'
 import {
   getParentDashboard,
   getTeacherDashboard,
+  getAdminDashboard,
+  getAdminInsights,
 } from '../controllers/dashboard.controller.js'
 
 const router = Router()
@@ -18,6 +20,20 @@ router.get(
   verifyToken,
   authorizeRole('parent'),
   getParentDashboard,
+)
+
+router.get(
+  '/admin',
+  verifyToken,
+  authorizeRole('admin'),
+  getAdminDashboard,
+)
+
+router.get(
+  '/admin/insights',
+  verifyToken,
+  authorizeRole('admin'),
+  getAdminInsights,
 )
 
 export default router

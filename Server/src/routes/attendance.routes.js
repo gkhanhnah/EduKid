@@ -10,9 +10,9 @@ const router = Router()
 
 router.use(verifyToken)
 
-router.post('/', authorizeRole('teacher'), upsertAttendance)
-router.post('/publish', authorizeRole('teacher'), publishAttendanceForDate)
-router.get('/', authorizeRole('teacher', 'parent'), getAttendanceByDate)
+router.post('/', authorizeRole('teacher', 'admin'), upsertAttendance)
+router.post('/publish', authorizeRole('teacher', 'admin'), publishAttendanceForDate)
+router.get('/', authorizeRole('teacher', 'parent', 'admin'), getAttendanceByDate)
 
 export default router
 

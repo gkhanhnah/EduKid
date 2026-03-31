@@ -4,7 +4,7 @@ import { Image as ImageIcon, MoreVertical, Paperclip, Search, Send } from 'lucid
 import { Sidebar } from '../components/Sidebar.jsx'
 import { useAuth } from '../hooks/useAuth.js'
 import { useSocket } from '../hooks/useSocket.js'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import {
   fetchMessageContacts,
   fetchMessageHistory,
@@ -56,6 +56,8 @@ export function Messages() {
   const { user } = useAuth()
   const { socketRef, connected, instanceId } = useSocket()
   const meId = user?.id ?? user?._id
+  const location = useLocation()
+  const isInParentDashboard = location.pathname.startsWith('/parent-dashboard')
 
   const [chatMode, setChatMode] = useState('direct') // direct | class
   const [classChats, setClassChats] = useState([])
@@ -561,8 +563,8 @@ export function Messages() {
 
   return (
     <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background md:flex-row">
-      <Sidebar />
-      <div className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden md:flex-row">
+      {!isInParentDashboard ? <Sidebar /> : null}
+      <div className="flex h-full min-h-0 flex-1 min-w-0 flex-col overflow-hidden md:flex-row">
         <div className="flex min-h-0 w-full max-h-[42vh] shrink-0 flex-col border-r border-border bg-white md:h-full md:max-h-none md:w-96">
           <div className="shrink-0 border-b border-border p-6">
             <h2 className="mb-1 text-lg font-semibold">Messages</h2>
