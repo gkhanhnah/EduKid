@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowLeft, BookOpen, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Sidebar } from '../../components/Sidebar.jsx'
 import { useAuth } from '../../hooks/useAuth.js'
 import { homePathForRole } from '../../utils/authPaths.js'
 import { LoadingState } from '../../components/LoadingState.jsx'
@@ -425,10 +424,7 @@ export function HomeworkManagement() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-background">
-      <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <div className="p-4 md:p-8 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
           <div className="mb-6">
             <Link
               to={`/classes/${classId}`}
@@ -785,8 +781,6 @@ export function HomeworkManagement() {
             </div>
           </Modal>
 
-        </div>
-      </div>
     </div>
   )
 }

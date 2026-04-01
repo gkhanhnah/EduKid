@@ -1,5 +1,5 @@
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom'
-import { BookOpen, CalendarDays, LayoutDashboard, LogOut, MessageCircle } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../hooks/useAuth.js'
 import { homePathForRole } from '../../utils/authPaths.js'
@@ -9,6 +9,8 @@ import {
   useParentChild,
 } from '../../context/ParentChildContext.jsx'
 import LanguageSwitcher from '../../components/LanguageSwitcher.jsx'
+import { BottomNav } from '../../components/BottomNav.jsx'
+import { parentNavItems } from '../../config/navigation.js'
 
 function ParentChildSwitcher() {
   const { t } = useTranslation()
@@ -73,38 +75,10 @@ function ParentLayoutShell() {
   const location = useLocation()
   const { logout } = useAuth()
   const { t } = useTranslation()
-  const parentNavItems = [
-    {
-      path: '/parent-dashboard',
-      icon: LayoutDashboard,
-      label: t('nav.myChildren'),
-      isActive: (pathname) =>
-        pathname === '/parent-dashboard' || pathname === '/parent',
-    },
-    {
-      path: '/parent-dashboard/homework',
-      icon: BookOpen,
-      label: t('nav.homework'),
-      isActive: (pathname) => pathname.startsWith('/parent-dashboard/homework'),
-    },
-    {
-      path: '/parent-dashboard/messages',
-      icon: MessageCircle,
-      label: t('nav.messages'),
-      isActive: (pathname) => pathname.startsWith('/parent-dashboard/messages'),
-    },
-    {
-      path: '/parent-dashboard/attendance',
-      icon: CalendarDays,
-      label: t('nav.attendance'),
-      isActive: (pathname) => pathname.startsWith('/parent-dashboard/attendance'),
-    },
-  ]
 
   return (
     <div className="flex min-h-screen flex-col bg-background md:flex-row">
-      <aside className="flex h-screen w-full shrink-0 flex-col border-b border-border bg-white md:w-64 md:border-b-0 md:border-r sticky top-0">
-        {/* Header: Cố định */}
+      <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-white md:flex">
         <div className="border-b border-border p-6 shrink-0">
           <h2 className="flex items-center gap-2">
             <span className="text-[2rem]">🎒</span>
@@ -116,12 +90,10 @@ function ParentLayoutShell() {
           </div>
         </div>
 
-        {/* Switcher: Cố định */}
         <div className="shrink-0 p-2">
           <ParentChildSwitcher />
         </div>
 
-        {/* Navigation: Chỉ phần này được phép Scroll */}
         <nav className="flex flex-1 flex-col gap-2 overflow-y-auto p-4 custom-scrollbar">
           {parentNavItems.map((item) => {
             const Icon = item.icon
@@ -136,13 +108,12 @@ function ParentLayoutShell() {
                   }`}
               >
                 <Icon className="h-5 w-5 shrink-0" />
-                <span className="text-[0.9375rem]">{item.label}</span>
+                <span className="text-[0.9375rem]">{t(item.labelKey)}</span>
               </Link>
             )
           })}
         </nav>
 
-        {/* Footer: Logout luôn nằm ở đáy */}
         <div className="mt-auto border-t border-border p-4 shrink-0 bg-white">
           <button
             type="button"
@@ -154,9 +125,36 @@ function ParentLayoutShell() {
           </button>
         </div>
       </aside>
-      <main className="min-h-0 flex-1 overflow-auto">
+      <main className="min-h-0 flex-1 overflow-auto pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-0">
+        <div className="border-b border-border bg-white px-4 py-4 md:hidden">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-semibold text-foreground">
+                {t('common.parent')}
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t('common.appName')}
+              </p>
+            </div>
+            <div className="shrink-0">
+              <LanguageSwitcher />
+            </div>
+          </div>
+          <div className="mt-3">
+            <ParentChildSwitcher />
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-border px-4 py-2 text-sm text-destructive transition-all hover:bg-destructive/10"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>{t('common.logout')}</span>
+          </button>
+        </div>
         <Outlet />
       </main>
+      <BottomNav items={parentNavItems} />
     </div>
   )
 }

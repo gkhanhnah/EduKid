@@ -243,7 +243,32 @@ export default function AdminGrades() {
               </div>
             </div>
 
-            <div className="overflow-x-auto rounded-2xl border border-border/60">
+            <div className="rounded-2xl border border-border/60">
+              <div className="space-y-3 p-3 md:hidden">
+                {(classData.students ?? []).map((row) => {
+                  const grades = row.grades ?? []
+                  return (
+                    <div key={row.student?._id ?? row.student?.id} className="rounded-2xl border border-border/60 bg-white p-4 shadow-sm">
+                      <p className="font-semibold">{row.student?.name ?? t('common.none')}</p>
+                      <div className="mt-3 space-y-2">
+                        {componentColumns.map((c) => {
+                          const g = grades.find((x) => String(x.componentName) === String(c.name) && String(x.subject?._id ?? x.subject) === String(subjectId))
+                          return (
+                            <div key={c.name} className="flex items-center justify-between gap-3 rounded-xl bg-muted/20 px-3 py-2 text-sm">
+                              <div>
+                                <p className="font-medium">{c.name}</p>
+                                <p className="text-xs text-muted-foreground">w={Number(c.weight).toFixed(2)}</p>
+                              </div>
+                              <span className="font-semibold">{g?.score != null ? g.score : t('common.none')}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm border-collapse min-w-[860px]">
                 <thead>
                   <tr className="bg-muted/40 border-b border-border">
@@ -281,6 +306,7 @@ export default function AdminGrades() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
 
             <div className="grid lg:grid-cols-2 gap-6 pt-2">

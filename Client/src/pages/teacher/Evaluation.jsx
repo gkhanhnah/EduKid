@@ -8,7 +8,6 @@ import { useEvaluations } from '../../hooks/useEvaluations.js'
 import { submitEvaluation } from '../../services/evaluationService.js'
 import { getGradesAverage } from '../../services/grade.service.js'
 import { getClasses } from '../../services/api.js'
-import { Sidebar } from '../../components/Sidebar.jsx'
 import { ClipboardCheck } from 'lucide-react'
 
 const EMPTY_FORM = {
@@ -200,10 +199,7 @@ export function Evaluation() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-background">
-      <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <div className="p-4 md:p-8 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-3 mb-2">
             <ClipboardCheck className="w-8 h-8 text-primary" />
             <h1 className="text-2xl font-semibold">{t('teacherEvaluation.title')}</h1>
@@ -389,8 +385,6 @@ export function Evaluation() {
               </ul>
             )}
           </section>
-        </div>
-      </div>
     </div>
   )
 }

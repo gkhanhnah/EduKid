@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Image as ImageIcon, MoreVertical, Paperclip, Search, Send } from 'lucide-react'
+import { ArrowLeft, Image as ImageIcon, MoreVertical, Paperclip, Search, Send } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Sidebar } from '../../components/Sidebar.jsx'
 import { useAuth } from '../../hooks/useAuth.js'
 import { useSocket } from '../../hooks/useSocket.js'
 import { Link, useLocation } from 'react-router-dom'
@@ -565,11 +564,15 @@ export function Messages() {
     !outgoing &&
     (Boolean(messageText.trim()) || Boolean(fileDraft))
 
+  const hasActiveConversation =
+    chatMode === 'class' ? Boolean(groupSelected) : Boolean(selected)
+  const showListPane = !hasActiveConversation
+  const showThreadPane = hasActiveConversation
+
   return (
-    <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background md:flex-row">
-      {!isInParentDashboard ? <Sidebar /> : null}
+    <div className="flex h-[calc(100dvh-10.5rem)] min-h-[32rem] min-w-0 flex-1 overflow-hidden rounded-[1.75rem] border border-border bg-white shadow-sm md:h-[calc(100dvh-8.5rem)]">
       <div className="flex h-full min-h-0 flex-1 min-w-0 flex-col overflow-hidden md:flex-row">
-        <div className="flex min-h-0 w-full max-h-[42vh] shrink-0 flex-col border-r border-border bg-white md:h-full md:max-h-none md:w-96">
+        <div className={`${showListPane ? 'flex' : 'hidden'} h-full min-h-0 w-full shrink-0 flex-col border-r border-border bg-white md:flex md:w-96`}>
           <div className="shrink-0 border-b border-border p-6">
             <h2 className="mb-1 text-lg font-semibold">{t('messagesPage.title')}</h2>
             <div className="flex gap-2 mb-3">
@@ -710,10 +713,24 @@ export function Messages() {
           </div>
         </div>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+        <div className={`${showThreadPane ? 'flex' : 'hidden'} h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background md:flex`}>
           <div className="shrink-0 border-b border-border bg-white p-4 md:p-6">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (chatMode === 'class') {
+                      setGroupSelected(null)
+                    } else {
+                      setSelected(null)
+                    }
+                  }}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border text-muted-foreground transition-colors hover:bg-accent md:hidden"
+                  aria-label={t('common.back')}
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-lg font-semibold text-white shrink-0">
                   {(chatMode === 'class'
                     ? (classChats.find(
@@ -722,7 +739,7 @@ export function Messages() {
                     : activePeerName || '?'
                   ).charAt(0).toUpperCase()}
                 </div>
-                <div className="min-w-0">
+                  <div className="min-w-0">
                     <h3 className="font-semibold truncate">
                       {chatMode === 'class'
                         ? t('messagesPage.classChat')

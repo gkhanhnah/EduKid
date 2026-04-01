@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useStudents } from '../../hooks/useStudents.js'
 import { getClasses } from '../../services/classService.js'
-import { Sidebar } from '../../components/Sidebar.jsx'
 import { Link2, Plus, Search, X } from 'lucide-react'
 import { createParentStudentLink } from '../../services/parentService.js'
 import { AnimatePresence, motion as m } from 'framer-motion'
@@ -148,10 +147,7 @@ export function StudentManagement() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-background">
-      <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <div className="p-4 md:p-8 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
           <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="mb-2">{t('teacherStudentManagement.title')}</h1>
@@ -307,9 +303,6 @@ export function StudentManagement() {
               ))}
             </div>
           )}
-        </div>
-      </div>
-
       <AnimatePresence>
         {showModal && (
           <m.div

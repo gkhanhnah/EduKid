@@ -581,7 +581,7 @@ function ChildDashboardPanels({ student, linkItem }) {
         transition={{ delay: 0.8 }}
         className="grid md:grid-cols-2 gap-6 mb-8"
       >
-        <Link to="/messages" className="block">
+        <Link to="/parent-dashboard/messages" className="block">
           <div className="bg-gradient-to-br from-primary to-secondary text-white rounded-3xl p-8 shadow-lg hover:shadow-xl transition-all cursor-pointer h-full">
             <MessageCircle className="w-12 h-12 mb-4" />
             <h3 className="text-[1.5rem] mb-2 font-semibold">{t('parentDashboard.messageTeacher')}</h3>
@@ -888,12 +888,12 @@ export function ParentDashboardHome() {
 
   return (
     <div className="min-h-full bg-background">
-      <div className="bg-gradient-to-r from-primary to-secondary text-white p-8">
-        <div className="max-w-7xl mx-auto">
+      <div className="bg-gradient-to-r from-primary to-secondary px-4 py-6 text-white sm:px-6 sm:py-8">
+        <div className="mx-auto max-w-7xl">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>
-              <h1 className="text-[2rem] font-bold mb-2">{t('parentDashboard.title')}</h1>
-              <p className="text-[1.125rem] opacity-90">
+              <h1 className="mb-2 text-[1.75rem] font-bold sm:text-[2rem]">{t('parentDashboard.title')}</h1>
+              <p className="text-base opacity-90 sm:text-[1.125rem]">
                 {t('parentDashboard.welcomeBack', { displayName })}
               </p>
               {/* {children.length > 1 ? (
@@ -903,7 +903,7 @@ export function ParentDashboardHome() {
                 </p>
               ) : null} */}
             </div>
-            <div className="w-24 h-24 rounded-3xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-[3rem] shrink-0">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-white/20 text-[2.5rem] backdrop-blur-sm sm:h-24 sm:w-24 sm:text-[3rem]">
               <span aria-hidden>
                 {selectedStudent ? (
                   <ChildEmoji student={selectedStudent} />
@@ -916,7 +916,7 @@ export function ParentDashboardHome() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         {loading ? (
           <div className="rounded-3xl border border-border bg-white p-12 text-center text-muted-foreground shadow-lg">
             {t('common.loading')}
@@ -961,7 +961,7 @@ export function ParentDashboardHome() {
                     {t('parentDashboard.timetable')}
                   </Link>
                   <Link
-                    to={`/classes/${clsId}/chat`}
+                    to="/parent-dashboard/messages"
                     className="inline-flex items-center justify-center rounded-xl border border-border bg-primary/30 px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/70"
                   >
                     {t('parentDashboard.classChat')}

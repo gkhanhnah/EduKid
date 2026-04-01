@@ -15,7 +15,6 @@ import {
   Eye,
   X,
 } from 'lucide-react'
-import { Sidebar } from '../../components/Sidebar.jsx'
 import { useAuth } from '../../hooks/useAuth.js'
 import { homePathForRole } from '../../utils/authPaths.js'
 import { LoadingState } from '../../components/LoadingState.jsx'
@@ -310,10 +309,7 @@ export function Documents() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-background">
-      <Sidebar />
-      <div className="flex-1 min-h-screen overflow-auto">
-        <div className="mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-10">
+    <div className="mx-auto max-w-7xl">
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
@@ -552,9 +548,6 @@ export function Documents() {
               {t('documentsPage.openFolderHint')}
             </p>
           ) : null}
-        </div>
-      </div>
-
       <FolderModal
         open={folderModalOpen}
         title={t('documentsPage.newFolder')}

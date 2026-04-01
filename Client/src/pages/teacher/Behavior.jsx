@@ -1,6 +1,5 @@
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Sidebar } from '../../components/Sidebar.jsx'
 import { BehaviorTracking } from './BehaviorTracking.jsx'
 import { BehaviorHistory } from './BehaviorHistory.jsx'
 
@@ -23,10 +22,8 @@ export function Behavior() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-background">
-      <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <div className="px-4 pt-4 md:px-8 md:pt-8 max-w-7xl mx-auto">
+    <div>
+      <div className="max-w-7xl">
           <div className="mb-6">
             <h1 className="text-2xl md:text-3xl font-bold mb-2">{t('teacherBehavior.title')}</h1>
             <p className="text-muted-foreground text-[1.05rem]">
@@ -52,14 +49,12 @@ export function Behavior() {
               ))}
             </div>
           </div>
-        </div>
-
-        {activeTab === 'tracking' ? (
-          <BehaviorTracking embedded />
-        ) : (
-          <BehaviorHistory embedded />
-        )}
       </div>
+      {activeTab === 'tracking' ? (
+        <BehaviorTracking embedded />
+      ) : (
+        <BehaviorHistory embedded />
+      )}
     </div>
   )
 }

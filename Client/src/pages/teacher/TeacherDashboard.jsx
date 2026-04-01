@@ -22,7 +22,6 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Sidebar } from '../../components/Sidebar.jsx'
 import { useAuth } from '../../hooks/useAuth.js'
 import { fetchTeacherDashboard } from '../../services/dashboardService.js'
 import { homePathForRole } from '../../utils/authPaths.js'
@@ -85,10 +84,8 @@ export function TeacherDashboard() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-background">
-      <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <div className="p-4 md:p-8 max-w-7xl mx-auto">
+    <div className="max-w-7xl">
+      <div className="p-0">
           <div className="mb-8">
             <h1 className="text-2xl md:text-3xl font-bold mb-2">
               {t('teacherDashboard.greeting', { name: greetingName })}
@@ -326,7 +323,6 @@ export function TeacherDashboard() {
               </motion.div>
             </>
           )}
-        </div>
       </div>
     </div>
   )

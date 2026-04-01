@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Sidebar } from '../../components/Sidebar.jsx'
 import {
   Sparkles,
   Wand2,
@@ -125,10 +124,7 @@ export function AILessonGenerator() {
   const usedFallback = lessonPlan?._meta?.usedFallback
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-background">
-      <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <div className="p-4 md:p-8 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
           <div className="mb-8">
             <h1 className="mb-2 flex items-center gap-3 text-2xl md:text-3xl font-bold">
               <Sparkles className="w-9 h-9 text-[#8B5CF6]" />
@@ -368,8 +364,6 @@ export function AILessonGenerator() {
               </div>
             </motion.div>
           ) : null}
-        </div>
-      </div>
     </div>
   )
 }

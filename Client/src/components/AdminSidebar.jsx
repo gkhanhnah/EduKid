@@ -1,35 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
-import {
-  LayoutDashboard,
-  Users,
-  School,
-  ClipboardCheck,
-  FolderOpen,
-  CalendarDays,
-  FileText,
-  Settings,
-  Activity,
-} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { adminNavItems } from '../config/navigation.js'
 
 export function AdminSidebar() {
   const location = useLocation()
   const { t } = useTranslation()
-  const navItems = [
-    { path: '/admin', icon: LayoutDashboard, label: t('nav.dashboard') },
-    { path: '/admin/students', icon: Users, label: t('nav.students') },
-    { path: '/admin/teachers', icon: Activity, label: t('nav.teachers') },
-    { path: '/admin/classes', icon: School, label: t('nav.classes') },
-    { path: '/admin/grades', icon: ClipboardCheck, label: t('nav.grades') },
-    { path: '/admin/attendance', icon: CalendarDays, label: t('nav.attendance') },
-    { path: '/admin/documents', icon: FolderOpen, label: t('nav.documents') },
-    { path: '/admin/reports', icon: FileText, label: t('nav.reports') },
-    { path: '/admin/school-info', icon: School, label: t('nav.schoolInfo') },
-    { path: '/admin/settings', icon: Settings, label: t('nav.settings') },
-  ]
 
   return (
-    <aside className="flex h-auto w-full shrink-0 flex-col border-b border-border bg-white md:h-screen md:w-64 md:border-b-0 md:border-r sticky top-0">
+    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-border bg-white">
       <div className="border-b border-border p-6 shrink-0">
         <h2 className="flex items-center gap-2">
           <span className="text-[2rem]">🎒</span>
@@ -39,7 +17,7 @@ export function AdminSidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-2 overflow-y-auto p-4 custom-scrollbar">
-        {navItems.map((item) => {
+        {adminNavItems.map((item) => {
           const Icon = item.icon
           const isActive =
             item.path === '/admin'
@@ -57,7 +35,7 @@ export function AdminSidebar() {
               }`}
             >
               <Icon className="h-5 w-5 shrink-0" />
-              <span className="text-[0.9375rem]">{item.label}</span>
+              <span className="text-[0.9375rem]">{t(item.labelKey)}</span>
             </Link>
           )
         })}

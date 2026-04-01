@@ -280,7 +280,74 @@ export default function AdminStudents() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse min-w-[780px]">
+          {loading ? (
+            <div className="py-8 text-center text-muted-foreground md:hidden">{t('common.loading')}</div>
+          ) : filtered.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground md:hidden">{t('adminStudents.noStudentsFound')}</div>
+          ) : (
+            <div className="space-y-3 md:hidden">
+              {filtered.map((s) => {
+                const sid = s._id
+                const className = s.classId?.name ?? ''
+                const status = s.status ?? 'ACTIVE'
+                const statusTone =
+                  status === 'ACTIVE'
+                    ? 'bg-emerald-500/15 text-emerald-800 border-emerald-500/30'
+                    : status === 'SUSPENDED'
+                      ? 'bg-destructive/10 text-destructive border-destructive/30'
+                      : 'bg-primary/10 text-primary border-primary/30'
+                return (
+                  <div key={sid} className="rounded-2xl border border-border/70 bg-white p-4 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border bg-muted/20 font-medium">
+                        {s.gender === 'Female' ? '👧' : s.gender === 'Male' ? '👦' : '🧒'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">{s.name}</p>
+                        <p className="text-xs text-muted-foreground">#{sid?.slice?.(-6) ?? ''}</p>
+                      </div>
+                      <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${statusTone}`}>
+                        {status}
+                      </span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">{t('adminStudents.class')}</p>
+                        <p className="mt-1 font-medium">{className || t('common.none')}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">{t('adminStudents.age')}</p>
+                        <p className="mt-1 font-medium">{s.age ?? t('common.none')}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">{t('adminStudents.gender')}</p>
+                        <p className="mt-1 font-medium">{s.gender ?? t('common.none')}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(s)}
+                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-border px-3 py-2 text-sm hover:bg-accent"
+                      >
+                        <Edit className="w-4 h-4" />
+                        {t('common.edit')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(sid)}
+                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-destructive hover:bg-accent"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        {t('common.delete')}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <table className="hidden w-full border-collapse text-sm md:table min-w-[780px]">
             <thead>
               <tr className="bg-muted/40 border-b border-border">
                 <th className="text-left px-3 py-2 font-semibold">{t('common.student')}</th>

@@ -1,9 +1,12 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { LogOut, UserRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { AppShell } from '../../components/AppShell.jsx'
 import { useAuth } from '../../hooks/useAuth.js'
 import { AdminSidebar } from '../../components/AdminSidebar.jsx'
+import { BottomNav } from '../../components/BottomNav.jsx'
 import LanguageSwitcher from '../../components/LanguageSwitcher.jsx'
+import { adminNavItems } from '../../config/navigation.js'
 
 export function AdminLayout() {
   const { user, logout } = useAuth()
@@ -14,11 +17,12 @@ export function AdminLayout() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-background">
-      <AdminSidebar />
-      <main className="min-h-0 flex-1 overflow-auto">
-        <header className="border-b border-border bg-white sticky top-0 z-10">
-          <div className="mx-auto max-w-7xl px-4 py-4 md:px-8 flex items-center justify-between gap-3">
+    <AppShell
+      sidebar={<AdminSidebar />}
+      bottomNav={<BottomNav items={adminNavItems} />}
+      contentClassName="mx-auto w-full max-w-7xl"
+      header={
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 md:px-8">
             <div className="flex items-center gap-3 min-w-0">
               <UserRound className="w-5 h-5 text-primary shrink-0" />
               <div className="min-w-0">
@@ -32,20 +36,17 @@ export function AdminLayout() {
               <button
                 type="button"
                 onClick={logout}
-                className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm hover:bg-accent transition-colors"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm transition-colors hover:bg-accent"
               >
                 <LogOut className="w-4 h-4 text-destructive" />
                 {t('common.logout')}
               </button>
             </div>
-          </div>
-        </header>
-
-        <div className="px-4 py-8 md:px-8 md:py-10">
-          <Outlet />
         </div>
-      </main>
-    </div>
+      }
+    >
+      <Outlet />
+    </AppShell>
   )
 }
 

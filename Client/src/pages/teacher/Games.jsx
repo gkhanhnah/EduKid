@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Sidebar } from '../../components/Sidebar.jsx'
 import { games } from '../../data/mockData.js'
 import { Trophy, Clock, Star } from 'lucide-react'
 import { motion } from 'framer-motion'
@@ -58,10 +57,7 @@ export function Games() {
         : `${totalSeconds}s`
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-background">
-      <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <div className="p-4 md:p-8 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
           <div className="mb-8">
             <h1 className="mb-2">{t('teacherGames.title')}</h1>
             <p className="text-[1.125rem] text-muted-foreground">
@@ -206,8 +202,6 @@ export function Games() {
               </div>
             )}
           </div>
-        </div>
-      </div>
     </div>
   )
 }
