@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Image as ImageIcon, MoreVertical, Paperclip, Search, Send } from 'lucide-react'
-import { Sidebar } from '../components/Sidebar.jsx'
-import { useAuth } from '../hooks/useAuth.js'
-import { useSocket } from '../hooks/useSocket.js'
+import { useTranslation } from 'react-i18next'
+import { Sidebar } from '../../components/Sidebar.jsx'
+import { useAuth } from '../../hooks/useAuth.js'
+import { useSocket } from '../../hooks/useSocket.js'
 import { Link, useLocation } from 'react-router-dom'
 import {
   fetchMessageContacts,
   fetchMessageHistory,
   uploadMessageFile,
-} from '../services/messageService.js'
-import { fetchClassChat } from '../services/chat.service.js'
-import { getClasses as fetchTeacherClasses } from '../services/classService.js'
-import { getMyChildren } from '../services/api.js'
+} from '../../services/messageService.js'
+import { fetchClassChat } from '../../services/chat.service.js'
+import { getClasses as fetchTeacherClasses } from '../../services/classService.js'
+import { getMyChildren } from '../../services/api.js'
+import { getUiErrorMessage } from '../../utils/errorMessages.js'
+import { formatDateTime } from '../../utils/locale.js'
 
 function idPart(v) {
   if (v == null) return ''
@@ -53,6 +56,7 @@ const MESSAGE_PAGE_SIZE = 50
 const SCROLL_LOAD_OLDER_PX = 120
 
 export function Messages() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const { socketRef, connected, instanceId } = useSocket()
   const meId = user?.id ?? user?._id
@@ -142,7 +146,7 @@ export function Messages() {
       })
     } catch (e) {
       setContactsError(
-        e?.response?.data?.error || e?.message || 'Could not load contacts',
+        getUiErrorMessage(e, t('messagesPage.loadContactsFailed')),
       )
       setContacts([])
     } finally {
@@ -181,7 +185,7 @@ export function Messages() {
           if (!map.has(String(cid))) {
             map.set(String(cid), {
               classId: String(cid),
-              name: cls?.name || 'Class',
+              name: cls?.name || t('messagesPage.classFallback'),
               grade: cls?.grade,
             })
           }
@@ -190,7 +194,7 @@ export function Messages() {
       }
     } catch (e) {
       setClassChats([])
-      setGroupError(e?.response?.data?.error || e?.message || 'Could not load class chats')
+      setGroupError(getUiErrorMessage(e, t('messagesPage.loadClassChatsFailed')))
     } finally {
       setGroupLoading(false)
     }
@@ -228,7 +232,7 @@ export function Messages() {
       setHasMoreOlder(hasMore)
     } catch (e) {
       setHistoryError(
-        e?.response?.data?.error || e?.message || 'Could not load messages',
+        getUiErrorMessage(e, t('messagesPage.loadMessagesFailed')),
       )
       setMessages([])
       setHasMoreOlder(false)
@@ -367,7 +371,7 @@ export function Messages() {
       setGroupHasMoreOlder(data.hasMore)
     } catch (e) {
       setGroupHistoryError(
-        e?.response?.data?.error || e?.message || 'Could not load class chat',
+        getUiErrorMessage(e, t('messagesPage.loadClassChatFailed')),
       )
       setGroupMessages([])
       setGroupHasMoreOlder(false)
@@ -528,7 +532,7 @@ export function Messages() {
         (res) => {
           setOutgoing(false)
           if (!res?.ok) {
-            setSendError(res?.error || 'Could not send message')
+            setSendError(res?.error || t('messagesPage.sendMessageFailed'))
             return
           }
           if (res.message) {
@@ -541,16 +545,16 @@ export function Messages() {
       setOutgoing(false)
       setUploading(false)
       setSendError(
-        e?.response?.data?.error || e?.message || 'Upload failed',
+        getUiErrorMessage(e, t('messagesPage.uploadFailed')),
       )
     }
   }, [outgoing, messageText, fileDraft, selected, meId, socketRef])
 
-  const activePeerName = selected?.peerName ?? 'Conversation'
+  const activePeerName = selected?.peerName ?? t('messagesPage.conversation')
   const contextLine = selected
     ? selected.peerRole === 'parent'
-      ? `Parent · ${selected.studentName ?? 'Student'}`
-      : `Teacher · regarding ${selected.studentName ?? 'your child'}`
+      ? t('messagesPage.parentContext', { studentName: selected.studentName ?? t('common.student') })
+      : t('messagesPage.teacherContext', { studentName: selected.studentName ?? t('common.yourChild') })
     : ''
 
   const canSend =
@@ -567,7 +571,7 @@ export function Messages() {
       <div className="flex h-full min-h-0 flex-1 min-w-0 flex-col overflow-hidden md:flex-row">
         <div className="flex min-h-0 w-full max-h-[42vh] shrink-0 flex-col border-r border-border bg-white md:h-full md:max-h-none md:w-96">
           <div className="shrink-0 border-b border-border p-6">
-            <h2 className="mb-1 text-lg font-semibold">Messages</h2>
+            <h2 className="mb-1 text-lg font-semibold">{t('messagesPage.title')}</h2>
             <div className="flex gap-2 mb-3">
               <button
                 type="button"
@@ -578,7 +582,7 @@ export function Messages() {
                 }`}
                 onClick={() => setChatMode('direct')}
               >
-                Direct
+                {t('messagesPage.direct')}
               </button>
               <button
                 type="button"
@@ -589,16 +593,16 @@ export function Messages() {
                 }`}
                 onClick={() => setChatMode('class')}
               >
-                Class chat
+                {t('messagesPage.classChat')}
               </button>
             </div>
             {!connected ? (
               <p className="text-xs text-amber-700 mb-3">
-                Connecting to chat…
+                {t('messagesPage.connecting')}
               </p>
             ) : (
               <p className="text-xs text-muted-foreground mb-3">
-                Live · teacher ↔ parent
+                {t('messagesPage.liveTeacherParent')}
               </p>
             )}
             <div className="relative">
@@ -607,8 +611,8 @@ export function Messages() {
                 type="search"
                 placeholder={
                   chatMode === 'class'
-                    ? 'Search classes…'
-                    : 'Search conversations…'
+                    ? t('messagesPage.searchClasses')
+                    : t('messagesPage.searchConversations')
                 }
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -619,13 +623,12 @@ export function Messages() {
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {chatMode === 'direct' ? (
               contactsLoading ? (
-                <p className="p-5 text-sm text-muted-foreground">Loading…</p>
+                <p className="p-5 text-sm text-muted-foreground">{t('common.loading')}</p>
               ) : contactsError ? (
                 <p className="p-5 text-sm text-destructive">{contactsError}</p>
               ) : filteredContacts.length === 0 ? (
                 <p className="p-5 text-sm text-muted-foreground">
-                  No conversations yet. Links appear when a teacher connects a
-                  parent to a student.
+                  {t('messagesPage.noConversationsYet')}
                 </p>
               ) : (
                 filteredContacts.map((c) => {
@@ -662,12 +665,12 @@ export function Messages() {
             ) : (
               <>
                 {groupLoading ? (
-                  <p className="p-5 text-sm text-muted-foreground">Loading…</p>
+                  <p className="p-5 text-sm text-muted-foreground">{t('common.loading')}</p>
                 ) : groupError ? (
                   <p className="p-5 text-sm text-destructive">{groupError}</p>
                 ) : filteredClassChats.length === 0 ? (
                   <p className="p-5 text-sm text-muted-foreground">
-                    No class chats available.
+                    {t('messagesPage.noClassChatsAvailable')}
                   </p>
                 ) : (
                   filteredClassChats.map((c) => {
@@ -694,7 +697,7 @@ export function Messages() {
                               {c.name}
                             </h4>
                             <p className="text-[0.875rem] text-muted-foreground truncate">
-                              {c.grade != null && c.grade !== '' ? `Grade ${c.grade}` : ''}
+                              {c.grade != null && c.grade !== '' ? t('messagesPage.gradeLabel', { grade: c.grade }) : ''}
                             </p>
                           </div>
                         </div>
@@ -722,22 +725,22 @@ export function Messages() {
                 <div className="min-w-0">
                     <h3 className="font-semibold truncate">
                       {chatMode === 'class'
-                        ? 'Class chat'
+                        ? t('messagesPage.classChat')
                         : activePeerName}
                     </h3>
                     <p className="text-[0.875rem] text-muted-foreground truncate">
                       {chatMode === 'class'
                         ? (classChats.find(
                             (c) => String(c.classId) === String(groupSelected),
-                          )?.name || 'Select a class')
-                        : (contextLine || 'Select a conversation')}
+                          )?.name || t('messagesPage.selectClass'))
+                        : (contextLine || t('messagesPage.selectConversation'))}
                     </p>
                 </div>
               </div>
               <button
                 type="button"
                 className="p-3 hover:bg-accent rounded-2xl transition-all shrink-0"
-                aria-label="More"
+                aria-label={t('messagesPage.more')}
               >
                 <MoreVertical className="w-5 h-5" />
               </button>
@@ -751,21 +754,21 @@ export function Messages() {
           >
             {(chatMode === 'class' ? groupLoadingOlder : loadingOlder) ? (
               <p className="text-xs text-center text-muted-foreground py-1">
-                Loading older messages…
+                {t('messagesPage.loadingOlderMessages')}
               </p>
             ) : null}
             {chatMode === 'class' ? (
               groupHistoryLoading ? (
-                <p className="text-sm text-muted-foreground">Loading class chat…</p>
+                <p className="text-sm text-muted-foreground">{t('messagesPage.loadingClassChat')}</p>
               ) : groupHistoryError ? (
                 <p className="text-sm text-destructive">{groupHistoryError}</p>
               ) : !groupSelected ? (
                 <p className="text-sm text-muted-foreground">
-                  Choose a class to view group chat.
+                  {t('messagesPage.chooseClassToView')}
                 </p>
               ) : groupMessages.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No messages yet in this class chat.
+                  {t('messagesPage.noMessagesInClassChat')}
                 </p>
               ) : (
                 groupMessages.map((m, index) => {
@@ -793,14 +796,11 @@ export function Messages() {
                       >
                         <div className="flex items-center justify-between gap-3 mb-1">
                           <div className="text-xs text-muted-foreground">
-                            {m?.sender?.name || 'Unknown'}
+                            {m?.sender?.name || t('messagesPage.unknown')}
                           </div>
                           <div className="text-[11px] text-muted-foreground shrink-0">
                             {ts
-                              ? ts.toLocaleString(undefined, {
-                                  dateStyle: 'short',
-                                  timeStyle: 'short',
-                                })
+                              ? formatDateTime(ts, { dateStyle: 'short', timeStyle: 'short' })
                               : ''}
                           </div>
                         </div>
@@ -809,7 +809,7 @@ export function Messages() {
                         </p>
                         {meMentioned && !fromMe ? (
                           <div className="text-[11px] text-primary mt-1">
-                            You were mentioned
+                            {t('messagesPage.youWereMentioned')}
                           </div>
                         ) : null}
                       </div>
@@ -818,16 +818,16 @@ export function Messages() {
                 })
               )
             ) : historyLoading ? (
-              <p className="text-sm text-muted-foreground">Loading messages…</p>
+              <p className="text-sm text-muted-foreground">{t('messagesPage.loadingMessages')}</p>
             ) : historyError ? (
               <p className="text-sm text-destructive">{historyError}</p>
             ) : !selected ? (
               <p className="text-sm text-muted-foreground">
-                Choose someone to start messaging.
+                {t('messagesPage.chooseSomeone')}
               </p>
             ) : messages.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No messages yet. Say hello or attach a file below.
+                {t('messagesPage.noMessagesYet')}
               </p>
             ) : (
               messages.map((message, index) => {
@@ -837,7 +837,7 @@ export function Messages() {
                   : null
                 const url = message.attachmentUrl
                 const mime = message.attachmentMime
-                const fname = message.attachmentName || 'Attachment'
+                const fname = message.attachmentName || t('messagesPage.attachment')
                 return (
                   <motion.div
                     key={message._id ?? `${index}-${message.createdAt}`}
@@ -890,10 +890,7 @@ export function Messages() {
                         }`}
                       >
                         {ts
-                          ? ts.toLocaleString(undefined, {
-                              dateStyle: 'short',
-                              timeStyle: 'short',
-                            })
+                          ? formatDateTime(ts, { dateStyle: 'short', timeStyle: 'short' })
                           : ''}
                       </p>
                     </div>
@@ -908,17 +905,17 @@ export function Messages() {
             {chatMode === 'class' ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm text-muted-foreground">
-                  Class chat is view-only here. Use the full chat page for tagging and sending.
+                  {t('messagesPage.classChatViewOnly')}
                 </div>
                 {groupSelected ? (
                   <Link
                     to={`/classes/${groupSelected}/chat`}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-white text-sm hover:bg-primary/90"
                   >
-                    Open class chat
+                    {t('messagesPage.openClassChat')}
                   </Link>
                 ) : (
-                  <div className="text-xs text-muted-foreground">Select a class first.</div>
+                  <div className="text-xs text-muted-foreground">{t('messagesPage.selectClassFirst')}</div>
                 )}
               </div>
             ) : (
@@ -935,7 +932,7 @@ export function Messages() {
                       className="text-destructive text-xs shrink-0"
                       onClick={() => setFileDraft(null)}
                     >
-                      Remove
+                      {t('messagesPage.remove')}
                     </button>
                   </div>
                 ) : null}
@@ -954,7 +951,7 @@ export function Messages() {
                   <button
                     type="button"
                     className="p-4 hover:bg-accent rounded-2xl transition-all text-muted-foreground disabled:opacity-40"
-                    aria-label="Attach file"
+                    aria-label={t('messagesPage.attachFile')}
                     disabled={!selected || !connected || uploading}
                     onClick={() => fileInputRef.current?.click()}
                   >
@@ -964,8 +961,8 @@ export function Messages() {
                     <textarea
                       placeholder={
                         selected
-                          ? 'Type a message or attach a file…'
-                          : 'Select a conversation first'
+                          ? t('messagesPage.typeMessage')
+                          : t('messagesPage.selectConversationFirst')
                       }
                       value={messageText}
                       onChange={(e) => setMessageText(e.target.value)}
@@ -985,15 +982,15 @@ export function Messages() {
                     onClick={() => handleSendMessage()}
                     disabled={!canSend}
                     className="p-4 bg-primary text-white rounded-2xl hover:bg-primary/90 transition-all disabled:opacity-50 disabled:pointer-events-none shrink-0"
-                    aria-label="Send"
+                    aria-label={t('messagesPage.send')}
                   >
                     <Send className="w-6 h-6" />
                   </button>
                 </div>
                 <p className="text-[0.75rem] text-muted-foreground mt-2 ml-16">
                   {uploading
-                    ? 'Uploading attachment…'
-                    : 'Enter to send · Shift+Enter for a new line'}
+                    ? t('messagesPage.uploadingAttachment')
+                    : t('messagesPage.sendHint')}
                 </p>
               </>
             )}

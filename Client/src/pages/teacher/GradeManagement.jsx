@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Plus, Pencil, Eye, EyeOff } from 'lucide-react'
-import { Sidebar } from '../components/Sidebar.jsx'
-import { useAuth } from '../hooks/useAuth.js'
-import { homePathForRole } from '../utils/authPaths.js'
-import { LoadingState } from '../components/LoadingState.jsx'
-import { ErrorBanner } from '../components/ErrorBanner.jsx'
+import { useTranslation } from 'react-i18next'
+import { Sidebar } from '../../components/Sidebar.jsx'
+import { useAuth } from '../../hooks/useAuth.js'
+import { homePathForRole } from '../../utils/authPaths.js'
+import { LoadingState } from '../../components/LoadingState.jsx'
+import { ErrorBanner } from '../../components/ErrorBanner.jsx'
 import {
   addGradeToSubject,
   toggleShowGrade,
@@ -15,8 +16,9 @@ import {
   getClassGrades,
   getSubjects,
   getGradesBySubject,
-} from '../services/grade.service.js'
-import { getClassById } from '../services/api.js'
+} from '../../services/grade.service.js'
+import { getClassById } from '../../services/api.js'
+import { getUiErrorMessage } from '../../utils/errorMessages.js'
 
 function resolveWeightFromGrade(g, fallbackSubject) {
   const sub = (g && g.subject) || fallbackSubject
@@ -49,7 +51,7 @@ function formatNumberOrDash(v, digits = 2) {
   return n.toFixed(digits)
 }
 
-function Modal({ open, title, children, onClose }) {
+function Modal({ open, title, children, onClose, closeLabel }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -58,7 +60,7 @@ function Modal({ open, title, children, onClose }) {
         onClick={onClose}
         role="button"
         tabIndex={-1}
-        aria-label="Close modal"
+        aria-label={closeLabel}
       />
       <div className="relative w-full sm:max-w-lg bg-background border border-border rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
         <div className="p-4 sm:p-6 border-b border-border flex items-center justify-between gap-3">
@@ -68,13 +70,17 @@ function Modal({ open, title, children, onClose }) {
             onClick={onClose}
             className="text-sm px-3 py-1 rounded-xl hover:bg-accent border border-border"
           >
-            Close
+            {closeLabel}
           </button>
         </div>
         <div className="p-4 sm:p-6">{children}</div>
       </div>
     </div>
   )
+}
+
+Modal.defaultProps = {
+  closeLabel: 'Close',
 }
 
 const defaultComponentRows = () => [
@@ -87,6 +93,10 @@ function gradebookCellKey(studentId, subjectId, componentName) {
 }
 
 export function GradeManagement() {
+  const { t } = useTranslation()
+  Modal.defaultProps = {
+    closeLabel: t('common.close'),
+  }
   const { user } = useAuth()
   const { classId } = useParams()
 
@@ -142,7 +152,7 @@ export function GradeManagement() {
         setClassDetail(d ?? null)
       } catch (e) {
         if (cancelled) return
-        setClassDetailError(e?.response?.data?.error || e?.message || 'Could not load class')
+        setClassDetailError(getUiErrorMessage(e, t('errors.loadClass')))
         setClassDetail(null)
       } finally {
         if (!cancelled) setClassDetailLoading(false)
@@ -162,7 +172,7 @@ export function GradeManagement() {
       setSubjects(subRes.subjects ?? [])
       setClassData(classRes)
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Could not load grades')
+      setError(getUiErrorMessage(e, t('errors.loadGrades')))
       setClassData(null)
       setSubjects([])
     } finally {
@@ -249,7 +259,7 @@ export function GradeManagement() {
 
       const score = Number(raw)
       if (!Number.isFinite(score)) {
-        setError('Score must be a valid number.')
+        setError(t('gradeManagement.scoreMustBeValidNumber'))
         gradebookSavingKeysRef.current.delete(key)
         return
       }
@@ -276,7 +286,7 @@ export function GradeManagement() {
         }
         await loadAll()
       } catch (e) {
-        setError(e?.response?.data?.error || e?.message || 'Could not save grade')
+        setError(getUiErrorMessage(e, t('errors.saveGrade')))
         setDraftScores((prev) => ({
           ...prev,
           [key]: g != null && Number.isFinite(Number(g.score)) ? String(g.score) : prev[key] ?? '',
@@ -308,7 +318,7 @@ export function GradeManagement() {
       const d = await getGradesBySubject(subjectId)
       setSubjectGradesData(d)
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Could not load subject grades')
+      setError(getUiErrorMessage(e, t('gradeManagement.loadSubjectGradesFailed')))
       setSubjectGradesData(null)
     } finally {
       setSubjectGradesLoading(false)
@@ -369,13 +379,13 @@ export function GradeManagement() {
           weight: Number(r.weight),
         }))
         .filter((r) => r.name)
-      if (!comps.length) throw new Error('Add at least one component with a name.')
+      if (!comps.length) throw new Error(t('gradeManagement.addOneComponent'))
       for (const c of comps) {
         if (!Number.isFinite(c.weight) || c.weight < 0 || c.weight > 1) {
-          throw new Error('Each weight must be between 0 and 1.')
+          throw new Error(t('gradeManagement.weightBetweenZeroAndOne'))
         }
       }
-      if (!subjectName.trim()) throw new Error('Subject name is required.')
+      if (!subjectName.trim()) throw new Error(t('gradeManagement.subjectNameRequired'))
 
       if (editingSubject?._id) {
         await updateSubject(editingSubject._id, {
@@ -397,7 +407,7 @@ export function GradeManagement() {
         await loadSubjectGrades(selectedSubjectId)
       }
     } catch (e) {
-      setSubjectError(e?.response?.data?.error || e?.message || 'Could not save subject')
+      setSubjectError(getUiErrorMessage(e, t('gradeManagement.saveSubjectFailed')))
     } finally {
       setSubjectBusy(false)
     }
@@ -506,10 +516,10 @@ export function GradeManagement() {
       const mode = gradeModal.mode
       const componentName = gradeModal.initialComponentName
       const score = Number(modalDraftScore)
-      if (!studentId || !componentName) throw new Error('Student and component are required.')
+      if (!studentId || !componentName) throw new Error(t('gradeManagement.studentAndComponentRequired'))
 
       if (mode === 'add') {
-        if (!Number.isFinite(score)) throw new Error('Score must be a valid number.')
+        if (!Number.isFinite(score)) throw new Error(t('gradeManagement.scoreMustBeValidNumber'))
         await addGradeToSubject(selectedSubjectId, {
           studentId,
           classId,
@@ -523,7 +533,7 @@ export function GradeManagement() {
             showToParent: modalDraftShowToParent,
           })
         } else {
-          if (!Number.isFinite(score)) throw new Error('Score must be a valid number.')
+          if (!Number.isFinite(score)) throw new Error(t('gradeManagement.scoreMustBeValidNumber'))
           await updateGrade(gradeModal.gradeId, {
             score,
             showToParent: modalDraftShowToParent,
@@ -535,7 +545,7 @@ export function GradeManagement() {
       await loadSubjectGrades(selectedSubjectId)
       await loadAll()
     } catch (e) {
-      setModalError(e?.response?.data?.error || e?.message || 'Could not save grade')
+      setModalError(getUiErrorMessage(e, t('errors.saveGrade')))
     } finally {
       setModalBusy(false)
     }
@@ -574,7 +584,7 @@ export function GradeManagement() {
         await loadSubjectGrades(selectedSubjectId)
         await loadAll()
       } catch (e) {
-        setError(e?.response?.data?.error || e?.message || 'Could not update visibility')
+        setError(getUiErrorMessage(e, t('gradeManagement.updateVisibilityFailed')))
       }
     },
     [canManageGrades, gradesByStudentId, loadAll, loadSubjectGrades, selectedSubjectId],
@@ -626,7 +636,7 @@ export function GradeManagement() {
         <Sidebar />
         <div className="flex-1 overflow-auto">
           <div className="p-4 md:p-8 max-w-7xl mx-auto">
-            <LoadingState label="Loading grade management…" />
+            <LoadingState label={t('gradeManagement.loading')} />
           </div>
         </div>
       </div>
@@ -657,13 +667,13 @@ export function GradeManagement() {
               className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-3"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to class
+              {t('gradeManagement.backToClasses')}
             </Link>
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">Grade Management</h1>
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">{t('gradeManagement.title')}</h1>
             <p className="text-muted-foreground">
-              Create subjects with weighted components, enter grades per student, and control parent visibility.
+              {t('gradeManagement.subtitle')}
             </p>
-            <div className="flex flex-wrap gap-2 mt-4" role="tablist" aria-label="Grade views">
+            <div className="flex flex-wrap gap-2 mt-4" role="tablist" aria-label={t('gradeManagement.gradeViews')}>
               <button
                 type="button"
                 role="tab"
@@ -674,7 +684,7 @@ export function GradeManagement() {
                   }`}
                 onClick={() => setActiveTab('manage')}
               >
-                By subject
+                {t('gradeManagement.bySubject')}
               </button>
               <button
                 type="button"
@@ -686,7 +696,7 @@ export function GradeManagement() {
                   }`}
                 onClick={() => setActiveTab('gradebook')}
               >
-                Gradebook
+                {t('gradeManagement.gradebook')}
               </button>
             </div>
           </div>
@@ -699,16 +709,15 @@ export function GradeManagement() {
 
           {activeTab === 'gradebook' ? (
             <div className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm mb-6">
-              <h2 className="font-semibold text-lg mb-2">Gradebook</h2>
+              <h2 className="font-semibold text-lg mb-2">{t('gradeManagement.gradebook')}</h2>
               <p className="text-sm text-muted-foreground mb-4">
-                Enter scores per subject component. Cells from graded homework are read-only. Press Tab or click
-                outside a cell to save.
+                {t('gradeManagement.gradebookHelp')}
               </p>
               {!classData?.students?.length ? (
-                <p className="text-sm text-muted-foreground">No students in this class.</p>
+                <p className="text-sm text-muted-foreground">{t('gradeManagement.noStudentsInClass')}</p>
               ) : !gradeColumns.length ? (
                 <p className="text-sm text-muted-foreground">
-                  No subject components yet. Add subjects with components in the &quot;By subject&quot; tab.
+                  {t('gradeManagement.noSubjectComponents')}
                 </p>
               ) : (
                 <div className="overflow-x-auto rounded-2xl border border-border/60">
@@ -719,7 +728,7 @@ export function GradeManagement() {
                           scope="col"
                           className="sticky left-0 z-10 bg-muted/40 px-3 py-2 text-left font-semibold border-r border-border min-w-[140px]"
                         >
-                          Student
+                          {t('common.student')}
                         </th>
                         {gradeColumns.map((col) => (
                           <th
@@ -763,7 +772,7 @@ export function GradeManagement() {
                                       type="number"
                                       inputMode="decimal"
                                       step="0.5"
-                                      aria-label={`${row.student?.name ?? 'Student'} — ${col.subjectName} ${col.componentName}`}
+                                      aria-label={`${row.student?.name ?? t('common.student')} — ${col.subjectName} ${col.componentName}`}
                                       className={`w-[5.5rem] px-2 py-1.5 rounded-lg border text-center tabular-nums text-sm ${homeworkLocked
                                         ? 'bg-muted/50 border-border text-muted-foreground cursor-not-allowed'
                                         : 'border-border bg-white'
@@ -789,7 +798,7 @@ export function GradeManagement() {
                                       }}
                                     />
                                     {homeworkLocked ? (
-                                      <span className="text-[0.65rem] text-muted-foreground text-center w-[5.5rem]">Homework</span>
+                                      <span className="text-[0.65rem] text-muted-foreground text-center w-[5.5rem]">{t('common.homework')}</span>
                                     ) : null}
                                   </div>
                                 </td>
@@ -811,27 +820,29 @@ export function GradeManagement() {
                 <div className="lg:col-span-2 bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm">
                   <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
                     <div>
-                      <h2 className="font-semibold text-lg">Subjects</h2>
+                      <h2 className="font-semibold text-lg">{t('gradeManagement.subjects')}</h2>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Each subject has components (e.g. Midterm, Final) with weights for the class average.
+                        {t('gradeManagement.subjectsHelp')}
                       </p>
                     </div>
                     {canManageGrades ? (
                       <button type="button" className="btn btn-primary" onClick={openCreateSubject}>
                         <Plus className="w-4 h-4 mr-1" />
-                        Add subject
+                        {t('gradeManagement.addSubject')}
                       </button>
                     ) : null}
                   </div>
 
                   {subjectWeightWarnings.length ? (
                     <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 mb-4 text-sm text-destructive">
-                      <div className="font-semibold">Weight check (per subject)</div>
+                      <div className="font-semibold">{t('gradeManagement.weightCheckPerSubject')}</div>
                       <ul className="mt-2 list-disc pl-5 space-y-1">
                         {subjectWeightWarnings.map((w) => (
                           <li key={String(w.subjectId)}>
-                            {w.subjectName}: component weights sum to {formatNumberOrDash(w.typeWeightsSum, 2)}{' '}
-                            (expected 1.0).
+                            {t('gradeManagement.subjectWeightWarning', {
+                              subjectName: w.subjectName,
+                              sum: formatNumberOrDash(w.typeWeightsSum, 2),
+                            })}
                           </li>
                         ))}
                       </ul>
@@ -839,7 +850,7 @@ export function GradeManagement() {
                   ) : null}
 
                   {!subjects.length ? (
-                    <p className="text-sm text-muted-foreground">No subjects yet. Add a subject to record grades.</p>
+                    <p className="text-sm text-muted-foreground">{t('gradeManagement.noSubjectsYet')}</p>
                   ) : (
                     <ul className="space-y-2">
                       {subjects.map((sub) => (
@@ -852,7 +863,7 @@ export function GradeManagement() {
                             <div className="text-xs text-muted-foreground mt-0.5">
                               {(sub.components ?? [])
                                 .map((c) => `${c.name} (${formatNumberOrDash(c.weight, 2)})`)
-                                .join(' · ') || 'No components'}
+                                .join(' · ') || t('gradeManagement.noComponents')}
                             </div>
                           </div>
                           <button
@@ -869,24 +880,23 @@ export function GradeManagement() {
                 </div>
 
                 <div className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm">
-                  <h2 className="font-semibold text-lg mb-2">Visibility to parents</h2>
+                  <h2 className="font-semibold text-lg mb-2">{t('gradeManagement.visibilityToParents')}</h2>
                   <p className="text-sm text-muted-foreground">
-                    Use Show / Hide per student for the selected subject. Only visible grades appear in the parent
-                    view.
+                    {t('gradeManagement.visibilityHelp')}
                   </p>
                 </div>
               </div>
 
               <div className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm mb-6">
-                <h2 className="font-semibold text-lg mb-3">Grades by subject</h2>
+                <h2 className="font-semibold text-lg mb-3">{t('gradeManagement.gradesBySubject')}</h2>
                 <label className="field max-w-md">
-                  <span>Subject</span>
+                  <span>{t('gradeManagement.subject')}</span>
                   <select
                     value={selectedSubjectId}
                     onChange={(e) => setSelectedSubjectId(e.target.value)}
                     className="w-full rounded-xl border border-border p-2"
                   >
-                    <option value="">Select a subject…</option>
+                    <option value="">{t('gradeManagement.selectSubject')}</option>
                     {subjects.map((s) => (
                       <option key={s._id} value={s._id}>
                         {s.name}
@@ -896,18 +906,20 @@ export function GradeManagement() {
                 </label>
 
                 {selectedSubjectId && subjectGradesLoading ? (
-                  <p className="text-sm text-muted-foreground mt-4">Loading grades…</p>
+                  <p className="text-sm text-muted-foreground mt-4">{t('gradeManagement.loadingGrades')}</p>
                 ) : null}
 
                 {selectedSubjectId && !subjectGradesLoading && activeSubjectWeightWarning ? (
                   <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 mt-4 text-sm text-amber-900">
-                    Component weights for <span className="font-medium">{activeSubject?.name}</span> sum to{' '}
-                    {formatNumberOrDash(activeSubjectWeightWarning.componentsWeightSum, 2)} (expected 1.0).
+                    {t('gradeManagement.activeSubjectWeightWarning', {
+                      subjectName: activeSubject?.name,
+                      sum: formatNumberOrDash(activeSubjectWeightWarning.componentsWeightSum, 2),
+                    })}
                   </div>
                 ) : null}
 
                 {!selectedSubjectId ? (
-                  <p className="text-sm text-muted-foreground mt-4">Choose a subject to view and edit grades.</p>
+                  <p className="text-sm text-muted-foreground mt-4">{t('gradeManagement.chooseSubject')}</p>
                 ) : null}
               </div>
 
@@ -918,7 +930,7 @@ export function GradeManagement() {
                     const visibleCount = studentGrades.filter((g) => g.showToParent).length
                     const totalCount = studentGrades.length
                     const anyVisible = visibleCount > 0
-                    const avgText = s.weightedAverage == null ? '—' : formatNumberOrDash(s.weightedAverage, 2)
+                    const avgText = s.weightedAverage == null ? t('common.none') : formatNumberOrDash(s.weightedAverage, 2)
                     const comps = s.components ?? []
 
                     return (
@@ -930,14 +942,14 @@ export function GradeManagement() {
                           <div>
                             <h3 className="text-lg font-semibold">{s.student.name}</h3>
                             <p className="text-sm text-muted-foreground">
-                              Weighted average: <span className="font-semibold text-primary">{avgText}</span>
+                              {t('gradeManagement.weightedAverage')}: <span className="font-semibold text-primary">{avgText}</span>
                             </p>
                             {totalCount ? (
                               <p className="text-xs text-muted-foreground mt-1">
-                                Parents can see {visibleCount}/{totalCount} grades for this subject.
+                                {t('gradeManagement.parentsCanSeeGrades', { visibleCount, totalCount })}
                               </p>
                             ) : (
-                              <p className="text-xs text-muted-foreground mt-1">No grades for this subject yet.</p>
+                              <p className="text-xs text-muted-foreground mt-1">{t('gradeManagement.noGradesForSubjectYet')}</p>
                             )}
                           </div>
 
@@ -950,7 +962,7 @@ export function GradeManagement() {
                                 disabled={!comps.length}
                               >
                                 <Plus className="w-4 h-4 mr-1" />
-                                Add grade
+                                {t('gradeManagement.addGrade')}
                               </button>
                             ) : null}
 
@@ -964,12 +976,12 @@ export function GradeManagement() {
                                 {anyVisible ? (
                                   <>
                                     <EyeOff className="w-4 h-4 mr-1" />
-                                    Hide
+                                    {t('gradeManagement.hide')}
                                   </>
                                 ) : (
                                   <>
                                     <Eye className="w-4 h-4 mr-1" />
-                                    Show
+                                    {t('gradeManagement.show')}
                                   </>
                                 )}
                               </button>
@@ -993,7 +1005,7 @@ export function GradeManagement() {
                                         <div>
                                           <div className="font-medium">{c.name}</div>
                                           <div className="text-xs text-muted-foreground tabular-nums mt-0.5">
-                                            Weight: {formatNumberOrDash(c.weight, 2)}
+                                            {t('gradeManagement.weight')}: {formatNumberOrDash(c.weight, 2)}
                                           </div>
                                         </div>
                                         {g ? (
@@ -1003,17 +1015,17 @@ export function GradeManagement() {
                                               : 'bg-muted/40 border-border text-muted-foreground'
                                               }`}
                                           >
-                                            {visible ? 'Visible' : 'Hidden'}
+                                            {visible ? t('gradeManagement.visible') : t('gradeManagement.hidden')}
                                           </span>
                                         ) : (
                                           <span className="text-[0.75rem] px-2 py-1 rounded-xl border bg-muted/30 border-border text-muted-foreground">
-                                            Missing
+                                            {t('gradeManagement.missing')}
                                           </span>
                                         )}
                                       </div>
                                       <div className="flex items-center justify-between gap-2 mt-3">
                                         <div className="text-sm font-semibold tabular-nums">
-                                          {g ? formatNumberOrDash(g.score, 0) : '—'}
+                                          {g ? formatNumberOrDash(g.score, 0) : t('common.none')}
                                         </div>
                                         {g ? (
                                           canManageGrades ? (
@@ -1059,7 +1071,7 @@ export function GradeManagement() {
 
                   {!displayedStudents.length ? (
                     <div className="bg-white rounded-3xl border border-border p-6 shadow-sm text-muted-foreground text-sm">
-                      No students in this class.
+                      {t('gradeManagement.noStudentsInClass')}
                     </div>
                   ) : null}
                 </div>
@@ -1071,7 +1083,8 @@ export function GradeManagement() {
 
       <Modal
         open={gradeModal.open}
-        title={gradeModal.mode === 'add' ? 'Add grade' : 'Edit grade'}
+        title={gradeModal.mode === 'add' ? t('gradeManagement.addGrade') : t('gradeManagement.editGrade')}
+        closeLabel={t('common.close')}
         onClose={() => {
           if (modalBusy) return
           setGradeModal((p) => ({ ...p, open: false }))
@@ -1080,7 +1093,7 @@ export function GradeManagement() {
         <div className="space-y-3">
           {(activeSubject?.components ?? []).length ? (
             <label className="field">
-              <span>Component</span>
+              <span>{t('gradeManagement.component')}</span>
               <select
                 value={activeComponentName ?? ''}
                 onChange={(e) => {
@@ -1098,18 +1111,18 @@ export function GradeManagement() {
               </select>
             </label>
           ) : (
-            <p className="text-sm text-destructive">Select a subject with components first.</p>
+            <p className="text-sm text-destructive">{t('gradeManagement.selectSubjectWithComponentsFirst')}</p>
           )}
 
           <label className="field">
-            <span>Score</span>
+            <span>{t('gradeManagement.score')}</span>
             <input
               type="number"
               inputMode="decimal"
               step="1"
               value={modalDraftScore}
               onChange={(e) => setModalDraftScore(e.target.value)}
-              placeholder="e.g. 85"
+              placeholder={t('gradeManagement.scorePlaceholder')}
               className="w-full"
               disabled={modalBusy || !canManageGrades || (gradeModal.mode === 'edit' && gradeModal.scoreLocked)}
             />
@@ -1123,16 +1136,16 @@ export function GradeManagement() {
               disabled={!canManageGrades}
             />
             <div className="text-sm">
-              <div className="font-medium">Visible to parents</div>
+              <div className="font-medium">{t('gradeManagement.visibleToParents')}</div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                Only visible grades appear in the parent view.
+                {t('gradeManagement.visibleToParentsHelp')}
               </div>
             </div>
           </label>
 
           {previewWeightedAverage != null ? (
             <div className="rounded-2xl border border-border bg-background p-3">
-              <div className="text-xs text-muted-foreground">Preview weighted average</div>
+              <div className="text-xs text-muted-foreground">{t('gradeManagement.previewWeightedAverage')}</div>
               <div className="text-lg font-semibold text-primary tabular-nums">
                 {formatNumberOrDash(previewWeightedAverage, 2)}
               </div>
@@ -1148,7 +1161,7 @@ export function GradeManagement() {
               onClick={() => setGradeModal((p) => ({ ...p, open: false }))}
               disabled={modalBusy}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="button"
@@ -1156,7 +1169,7 @@ export function GradeManagement() {
               onClick={submitGrade}
               disabled={modalBusy || !canManageGrades || !activeComponentName}
             >
-              {modalBusy ? 'Saving…' : gradeModal.mode === 'add' ? 'Add' : 'Save'}
+              {modalBusy ? t('gradeManagement.saving') : gradeModal.mode === 'add' ? t('common.add') : t('common.save')}
             </button>
           </div>
         </div>
@@ -1164,7 +1177,8 @@ export function GradeManagement() {
 
       <Modal
         open={subjectModalOpen}
-        title={editingSubject ? 'Edit subject' : 'Add subject'}
+        title={editingSubject ? t('gradeManagement.editSubject') : t('gradeManagement.addSubject')}
+        closeLabel={t('common.close')}
         onClose={() => {
           if (subjectBusy) return
           setSubjectModalOpen(false)
@@ -1172,16 +1186,16 @@ export function GradeManagement() {
       >
         <div className="space-y-3">
           <label className="field">
-            <span>Name</span>
+            <span>{t('gradeManagement.name')}</span>
             <input
               value={subjectName}
               onChange={(e) => setSubjectName(e.target.value)}
-              placeholder="Math, English…"
+              placeholder={t('gradeManagement.subjectNamePlaceholder')}
               className="w-full"
             />
           </label>
           <label className="field">
-            <span>Description (optional)</span>
+            <span>{t('gradeManagement.descriptionOptional')}</span>
             <input
               value={subjectDescription}
               onChange={(e) => setSubjectDescription(e.target.value)}
@@ -1190,12 +1204,12 @@ export function GradeManagement() {
           </label>
 
           <div>
-            <div className="text-sm font-medium mb-2">Components (name + weight 0–1)</div>
+            <div className="text-sm font-medium mb-2">{t('gradeManagement.componentsNameWeight')}</div>
             <div className="space-y-2">
               {componentRows.map((row, i) => (
                 <div key={i} className="flex gap-2 items-end flex-wrap">
                   <label className="field flex-1 min-w-[120px]">
-                    <span className="text-xs">Name</span>
+                    <span className="text-xs">{t('gradeManagement.name')}</span>
                     <input
                       value={row.name}
                       onChange={(e) => {
@@ -1206,7 +1220,7 @@ export function GradeManagement() {
                     />
                   </label>
                   <label className="field w-28">
-                    <span className="text-xs">Weight</span>
+                    <span className="text-xs">{t('gradeManagement.weight')}</span>
                     <input
                       type="number"
                       inputMode="decimal"
@@ -1227,7 +1241,7 @@ export function GradeManagement() {
                     disabled={componentRows.length <= 1}
                     onClick={() => setComponentRows((prev) => prev.filter((_, j) => j !== i))}
                   >
-                    Remove
+                    {t('gradeManagement.remove')}
                   </button>
                 </div>
               ))}
@@ -1238,7 +1252,7 @@ export function GradeManagement() {
               onClick={() => setComponentRows((prev) => [...prev, { name: '', weight: '0.1' }])}
             >
               <Plus className="w-4 h-4 mr-1 inline" />
-              Add component
+              {t('gradeManagement.addComponent')}
             </button>
           </div>
 
@@ -1251,10 +1265,10 @@ export function GradeManagement() {
               disabled={subjectBusy}
               onClick={() => setSubjectModalOpen(false)}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button type="button" className="btn btn-primary" disabled={subjectBusy} onClick={submitSubject}>
-              {subjectBusy ? 'Saving…' : editingSubject ? 'Save' : 'Create'}
+              {subjectBusy ? t('gradeManagement.saving') : editingSubject ? t('common.save') : t('common.create')}
             </button>
           </div>
         </div>

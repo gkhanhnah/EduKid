@@ -2,7 +2,7 @@
 import { jsx, jsxs } from "react/jsx-runtime";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react";
-import { cn } from "./utils";
+import { cn } from "./utils.js";
 function DropdownMenu({
   ...props
 }) {

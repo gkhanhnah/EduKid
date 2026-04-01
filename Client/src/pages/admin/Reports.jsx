@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Download, FileText, CalendarDays } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { getClasses } from '../../services/classService.js'
 import { getSubjects } from '../../services/grade.service.js'
 import { exportGradesReportXlsx, exportAttendanceReportXlsx } from '../../services/adminService.js'
@@ -11,6 +12,7 @@ function dateInputValue(d = new Date()) {
 }
 
 export default function AdminReports() {
+  const { t } = useTranslation()
   const [error, setError] = useState('')
   const [classes, setClasses] = useState([])
   const [classesLoading, setClassesLoading] = useState(true)
@@ -78,9 +80,9 @@ export default function AdminReports() {
   async function handleExport() {
     setError('')
     try {
-      if (!classId) throw new Error('Select a class first')
+      if (!classId) throw new Error(t('adminReports.selectClassFirst'))
       if (reportType === 'grades') {
-        if (!subjectId) throw new Error('Select a subject first')
+        if (!subjectId) throw new Error(t('adminReports.selectSubjectFirst'))
         const blob = await exportGradesReportXlsx({ classId, subjectId, from, to })
         await downloadBlob(blob, 'grades_report.xlsx')
       } else {
@@ -88,19 +90,19 @@ export default function AdminReports() {
         await downloadBlob(blob, 'attendance_report.xlsx')
       }
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Export failed')
+      setError(e?.response?.data?.error || e?.message || t('adminReports.exportFailed'))
     }
   }
 
-  const typeLabel = reportType === 'grades' ? 'Grades' : 'Attendance'
+  const typeLabel = reportType === 'grades' ? t('common.grades') : t('common.attendance')
   const typeIcon = reportType === 'grades' ? <FileText className="w-4 h-4" /> : <CalendarDays className="w-4 h-4" />
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Reports & Analytics</h1>
-          <p className="text-muted-foreground mt-1">Download Excel exports for grades and attendance.</p>
+          <h1 className="text-2xl md:text-3xl font-bold">{t('adminReports.title')}</h1>
+          <p className="text-muted-foreground mt-1">{t('adminReports.subtitle')}</p>
         </div>
         <button
           type="button"
@@ -108,7 +110,7 @@ export default function AdminReports() {
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 w-fit"
         >
           <Download className="w-4 h-4" />
-          Export {typeLabel} (XLSX)
+          {t('adminReports.exportTypeXlsx', { type: typeLabel })}
         </button>
       </div>
 
@@ -118,7 +120,7 @@ export default function AdminReports() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="flex items-center gap-3">
             {typeIcon}
-            <span className="font-medium">Report type</span>
+            <span className="font-medium">{t('adminReports.reportType')}</span>
           </div>
           <div className="flex gap-2">
             <button
@@ -128,7 +130,7 @@ export default function AdminReports() {
                 reportType === 'grades' ? 'bg-primary/10 border-primary/50 text-primary' : 'bg-background'
               }`}
             >
-              Grades
+              {t('common.grades')}
             </button>
             <button
               type="button"
@@ -137,14 +139,14 @@ export default function AdminReports() {
                 reportType === 'attendance' ? 'bg-primary/10 border-primary/50 text-primary' : 'bg-background'
               }`}
             >
-              Attendance
+              {t('common.attendance')}
             </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="block">
-            <span className="text-sm font-medium">Class</span>
+            <span className="text-sm font-medium">{t('common.classes')}</span>
             <select
               value={classId}
               disabled={classesLoading}
@@ -161,7 +163,7 @@ export default function AdminReports() {
 
           {reportType === 'grades' ? (
             <label className="block">
-              <span className="text-sm font-medium">Subject</span>
+              <span className="text-sm font-medium">{t('adminReports.subject')}</span>
               <select
                 value={subjectId}
                 disabled={subjectsLoading || !classId}
@@ -180,17 +182,17 @@ export default function AdminReports() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="block">
-            <span className="text-sm font-medium">From</span>
+            <span className="text-sm font-medium">{t('adminReports.from')}</span>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-full mt-1 rounded-2xl border border-border px-4 py-3 bg-background" />
           </label>
           <label className="block">
-            <span className="text-sm font-medium">To</span>
+            <span className="text-sm font-medium">{t('adminReports.to')}</span>
             <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-full mt-1 rounded-2xl border border-border px-4 py-3 bg-background" />
           </label>
         </div>
 
         <div className="text-sm text-muted-foreground">
-          Exports use your backend report filters (XLSX).
+          {t('adminReports.footerHint')}
         </div>
       </div>
     </div>

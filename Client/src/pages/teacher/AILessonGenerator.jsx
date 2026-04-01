@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
-import { Sidebar } from '../components/Sidebar.jsx'
+import { useTranslation } from 'react-i18next'
+import { Sidebar } from '../../components/Sidebar.jsx'
 import {
   Sparkles,
   Wand2,
@@ -11,7 +12,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { generateLessonPlan } from '../services/aiLessonService.js'
+import { generateLessonPlan } from '../../services/aiLessonService.js'
 
 const QUICK_TOPICS = [
   { topic: 'Letter A', icon: '🅰️' },
@@ -58,6 +59,7 @@ function formatLessonForCopy(lesson) {
 }
 
 export function AILessonGenerator() {
+  const { t } = useTranslation()
   const [topic, setTopic] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -91,7 +93,7 @@ export function AILessonGenerator() {
         const msg =
           e?.response?.data?.error ||
           e?.message ||
-          'Could not generate lesson plan.'
+          t('teacherAiLesson.generateFailed')
         setError(msg)
         setLessonPlan(null)
       } finally {
@@ -109,7 +111,7 @@ export function AILessonGenerator() {
       setCopyDone(true)
       setTimeout(() => setCopyDone(false), 2000)
     } catch {
-      setError('Clipboard access failed. Copy manually from the sections below.')
+      setError(t('teacherAiLesson.clipboardFailed'))
     }
   }
 
@@ -130,21 +132,21 @@ export function AILessonGenerator() {
           <div className="mb-8">
             <h1 className="mb-2 flex items-center gap-3 text-2xl md:text-3xl font-bold">
               <Sparkles className="w-9 h-9 text-[#8B5CF6]" />
-              AI Lesson Generator
+              {t('teacherAiLesson.title')}
             </h1>
             <p className="text-[1.05rem] text-muted-foreground">
-              Generate structured Grade 1 lesson plans using OpenRouter.
+              {t('teacherAiLesson.subtitle')}
             </p>
           </div>
 
           <div className="bg-white rounded-3xl p-8 shadow-lg border border-border mb-8">
             <label htmlFor="topic" className="block mb-3 font-medium text-foreground">
-              What topic would you like to teach?
+              {t('teacherAiLesson.topicPrompt')}
             </label>
             <input
               id="topic"
               type="text"
-              placeholder="e.g., Numbers 1-10, Colors, Shapes…"
+              placeholder={t('teacherAiLesson.topicPlaceholder')}
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               disabled={loading}
@@ -173,12 +175,12 @@ export function AILessonGenerator() {
                     >
                       <Wand2 className="w-6 h-6" />
                     </motion.span>
-                    Generating…
+                    {t('teacherAiLesson.generating')}
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-6 h-6" />
-                    Generate lesson plan
+                    {t('teacherAiLesson.generate')}
                   </>
                 )}
               </button>
@@ -191,7 +193,7 @@ export function AILessonGenerator() {
                     className="inline-flex items-center gap-2 px-6 py-4 rounded-2xl border-2 border-border hover:bg-muted transition-colors disabled:opacity-50"
                   >
                     <RefreshCw className="w-5 h-5" />
-                    Try again
+                    {t('common.tryAgain')}
                   </button>
                   <button
                     type="button"
@@ -203,7 +205,7 @@ export function AILessonGenerator() {
                     ) : (
                       <Copy className="w-5 h-5" />
                     )}
-                    {copyDone ? 'Copied!' : 'Copy lesson plan'}
+                    {copyDone ? t('teacherAiLesson.copied') : t('teacherAiLesson.copyLesson')}
                   </button>
                 </>
               ) : null}
@@ -216,7 +218,7 @@ export function AILessonGenerator() {
               >
                 <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium">Something went wrong</p>
+                  <p className="font-medium">{t('teacherAiLesson.somethingWentWrong')}</p>
                   <p className="mt-1 opacity-90">{error}</p>
                   {topic.trim() ? (
                     <button
@@ -224,7 +226,7 @@ export function AILessonGenerator() {
                       onClick={handleTryAgain}
                       className="mt-3 text-sm underline font-medium"
                     >
-                      Try again
+                      {t('common.tryAgain')}
                     </button>
                   ) : null}
                 </div>
@@ -236,10 +238,10 @@ export function AILessonGenerator() {
             <div className="bg-white rounded-3xl p-8 shadow-lg border border-border">
               <h3 className="mb-4 flex items-center gap-2 font-semibold text-lg">
                 <BookOpen className="w-6 h-6 text-primary" />
-                Quick topics
+                {t('teacherAiLesson.quickTopics')}
               </h3>
               <p className="text-sm text-muted-foreground mb-6">
-                Click to fill the topic field, then press Generate.
+                {t('teacherAiLesson.quickTopicsHelp')}
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {QUICK_TOPICS.map((item) => (
@@ -268,26 +270,25 @@ export function AILessonGenerator() {
             >
               {usedFallback ? (
                 <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2">
-                  The model returned non-JSON text; a safe template was merged in. Try
-                  &quot;Try again&quot; for a fresh completion.
+                  {t('teacherAiLesson.fallbackWarning')}
                 </p>
               ) : null}
 
               <div className="bg-gradient-to-r from-[#8B5CF6] to-primary text-white rounded-3xl p-8 shadow-lg">
-                <h2 className="text-sm uppercase tracking-wide opacity-90 mb-2">Title</h2>
+                <h2 className="text-sm uppercase tracking-wide opacity-90 mb-2">{t('teacherAiLesson.lessonTitle')}</h2>
                 <h3 className="text-2xl font-bold leading-tight">{display.title}</h3>
               </div>
 
               <section className="bg-white rounded-3xl p-8 shadow-lg border border-border">
                 <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
                   <ClipboardList className="w-5 h-5 text-primary" />
-                  Objective
+                  {t('teacherAiLesson.objective')}
                 </h3>
                 <p className="text-muted-foreground leading-relaxed">{display.objective}</p>
               </section>
 
               <section className="bg-white rounded-3xl p-8 shadow-lg border border-border">
-                <h3 className="font-semibold text-lg mb-4">Materials</h3>
+                <h3 className="font-semibold text-lg mb-4">{t('teacherAiLesson.materials')}</h3>
                 <ul className="list-disc list-inside space-y-2 text-muted-foreground">
                   {(display.materials || []).map((m, i) => (
                     <li key={i}>{m}</li>
@@ -296,12 +297,12 @@ export function AILessonGenerator() {
               </section>
 
               <section className="bg-white rounded-3xl p-8 shadow-lg border border-border">
-                <h3 className="font-semibold text-lg mb-3">Warmup</h3>
+                <h3 className="font-semibold text-lg mb-3">{t('teacherAiLesson.warmup')}</h3>
                 <p className="text-muted-foreground leading-relaxed">{display.warmup}</p>
               </section>
 
               <section className="bg-white rounded-3xl p-8 shadow-lg border border-border">
-                <h3 className="font-semibold text-lg mb-6">Activities</h3>
+                <h3 className="font-semibold text-lg mb-6">{t('teacherAiLesson.activities')}</h3>
                 <div className="grid md:grid-cols-2 gap-4">
                   {(display.activities || []).map((act, index) => (
                     <motion.div
@@ -326,12 +327,12 @@ export function AILessonGenerator() {
               </section>
 
               <section className="bg-white rounded-3xl p-8 shadow-lg border border-border">
-                <h3 className="font-semibold text-lg mb-3">Assessment</h3>
+                <h3 className="font-semibold text-lg mb-3">{t('teacherAiLesson.assessment')}</h3>
                 <p className="text-muted-foreground leading-relaxed">{display.assessment}</p>
               </section>
 
               <section className="bg-white rounded-3xl p-8 shadow-lg border border-border">
-                <h3 className="font-semibold text-lg mb-3">Homework</h3>
+                <h3 className="font-semibold text-lg mb-3">{t('common.homework')}</h3>
                 <p className="text-muted-foreground leading-relaxed">{display.homework}</p>
               </section>
 
@@ -342,7 +343,7 @@ export function AILessonGenerator() {
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-white shadow-md hover:opacity-95"
                 >
                   <Copy className="w-5 h-5" />
-                  Copy lesson plan
+                  {t('teacherAiLesson.copyLesson')}
                 </button>
                 <button
                   type="button"
@@ -351,7 +352,7 @@ export function AILessonGenerator() {
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl border-2 border-border hover:bg-muted disabled:opacity-50"
                 >
                   <RefreshCw className="w-5 h-5" />
-                  Regenerate
+                  {t('teacherAiLesson.regenerate')}
                 </button>
                 <button
                   type="button"
@@ -362,7 +363,7 @@ export function AILessonGenerator() {
                   }}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-muted hover:bg-muted/80"
                 >
-                  New topic
+                  {t('teacherAiLesson.newTopic')}
                 </button>
               </div>
             </motion.div>

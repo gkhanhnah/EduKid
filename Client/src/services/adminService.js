@@ -20,6 +20,22 @@ export async function createAdminTeacher({ name, email, password }) {
   return data
 }
 
+export async function importAdminTeachersXlsx(file) {
+  const fd = new FormData()
+  fd.append('file', file)
+  const { data } = await httpClient.post('/admin/teachers/import', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
+
+export async function exportTeachersXlsx() {
+  const { data } = await httpClient.get('/admin/teachers/export/xlsx', {
+    responseType: 'blob',
+  })
+  return data
+}
+
 export async function deleteAdminTeacher(id) {
   const { data } = await httpClient.delete(`/admin/teachers/${id}`)
   return data

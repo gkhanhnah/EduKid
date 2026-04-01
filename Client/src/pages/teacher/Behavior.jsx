@@ -1,17 +1,18 @@
 import { useSearchParams } from 'react-router-dom'
-import { Sidebar } from '../components/Sidebar.jsx'
+import { useTranslation } from 'react-i18next'
+import { Sidebar } from '../../components/Sidebar.jsx'
 import { BehaviorTracking } from './BehaviorTracking.jsx'
 import { BehaviorHistory } from './BehaviorHistory.jsx'
 
-const TABS = [
-  { id: 'tracking', label: 'Tracking' },
-  { id: 'history', label: 'History' },
-]
-
 export function Behavior() {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const rawTab = searchParams.get('tab')
   const activeTab = rawTab === 'history' ? 'history' : 'tracking'
+  const tabs = [
+    { id: 'tracking', label: t('teacherBehavior.tabs.tracking') },
+    { id: 'history', label: t('teacherBehavior.tabs.history') },
+  ]
 
   function switchTab(tabId) {
     if (tabId === 'tracking') {
@@ -27,13 +28,13 @@ export function Behavior() {
       <div className="flex-1 overflow-auto">
         <div className="px-4 pt-4 md:px-8 md:pt-8 max-w-7xl mx-auto">
           <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">Behavior</h1>
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">{t('teacherBehavior.title')}</h1>
             <p className="text-muted-foreground text-[1.05rem]">
-              Track and review student behavior in one place.
+              {t('teacherBehavior.subtitle')}
             </p>
 
-            <div className="flex flex-wrap gap-2 mt-4" role="tablist" aria-label="Behavior views">
-              {TABS.map((tab) => (
+            <div className="flex flex-wrap gap-2 mt-4" role="tablist" aria-label={t('teacherBehavior.views')}>
+              {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"

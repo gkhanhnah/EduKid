@@ -1,7 +1,7 @@
 "use client";
 import { jsx, jsxs } from "react/jsx-runtime";
 import { Drawer as DrawerPrimitive } from "vaul";
-import { cn } from "./utils";
+import { cn } from "./utils.js";
 function Drawer({
   ...props
 }) {

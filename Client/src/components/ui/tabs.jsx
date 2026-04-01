@@ -1,7 +1,7 @@
 "use client";
 import { jsx } from "react/jsx-runtime";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
-import { cn } from "./utils";
+import { cn } from "./utils.js";
 function Tabs({
   className,
   ...props

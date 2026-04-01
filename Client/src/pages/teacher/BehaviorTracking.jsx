@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react'
-import { useStudents } from '../hooks/useStudents.js'
-import { useBehaviors } from '../hooks/useBehaviors.js'
-import { createBehavior } from '../services/api.js'
-import { getClasses } from '../services/api.js'
-import { Sidebar } from '../components/Sidebar.jsx'
+import { useTranslation } from 'react-i18next'
+import { useStudents } from '../../hooks/useStudents.js'
+import { useBehaviors } from '../../hooks/useBehaviors.js'
+import { createBehavior } from '../../services/api.js'
+import { getClasses } from '../../services/api.js'
+import { Sidebar } from '../../components/Sidebar.jsx'
 import { motion as m } from 'framer-motion'
-import { useAuth } from '../hooks/useAuth.js'
+import { useAuth } from '../../hooks/useAuth.js'
 
 const BEHAVIOR_TYPES = [
-  { value: 'GOOD', label: 'Good', emoji: '👍', bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700' },
-  { value: 'BAD', label: 'Bad', emoji: '👎', bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-700' },
-  { value: 'ACTIVE', label: 'Active', emoji: '⭐', bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700' },
-  { value: 'SLEEPY', label: 'Sleepy', emoji: '😴', bg: 'bg-amber-50', border: 'border-amber-300', text: 'text-amber-800' },
+  { value: 'GOOD', key: 'good', emoji: '👍', bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700' },
+  { value: 'BAD', key: 'bad', emoji: '👎', bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-700' },
+  { value: 'ACTIVE', key: 'active', emoji: '⭐', bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700' },
+  { value: 'SLEEPY', key: 'sleepy', emoji: '😴', bg: 'bg-amber-50', border: 'border-amber-300', text: 'text-amber-800' },
 ]
 
 const today = new Date().toISOString().split('T')[0]
@@ -37,6 +38,7 @@ function recordNote(record) {
 }
 
 export function BehaviorTracking({ embedded = false }) {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const { students, loading: studentsLoading } = useStudents()
   const { behaviors, loading: behaviorsLoading, error: behaviorsError, refresh } = useBehaviors()
@@ -87,11 +89,11 @@ export function BehaviorTracking({ embedded = false }) {
   async function handleSubmit(e) {
     e.preventDefault()
     if (!canCreateBehavior) {
-      setFormError('Read-only: only Main teacher can create behavior records for this student.')
+      setFormError(t('teacherBehaviorTracking.readOnly'))
       return
     }
     if (!form.studentId) {
-      setFormError('Please select a student.')
+      setFormError(t('teacherBehaviorTracking.selectStudent'))
       return
     }
     setFormError('')
@@ -110,7 +112,7 @@ export function BehaviorTracking({ embedded = false }) {
       setTimeout(() => setSubmitSuccess(false), 2500)
       refresh()
     } catch (err) {
-      setFormError(err.message || 'Failed to save behavior record.')
+      setFormError(err.message || t('teacherBehaviorTracking.saveFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -127,9 +129,9 @@ export function BehaviorTracking({ embedded = false }) {
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
       {!embedded && (
         <div className="mb-8">
-          <h1 className="mb-2">Behavior Tracking</h1>
+          <h1 className="mb-2">{t('teacherBehaviorTracking.title')}</h1>
           <p className="text-[1.125rem] text-muted-foreground">
-            Record and review student behavior evaluations
+            {t('teacherBehaviorTracking.subtitle')}
           </p>
         </div>
       )}
@@ -145,17 +147,17 @@ export function BehaviorTracking({ embedded = false }) {
           >
             <div className="text-[2.5rem] mb-2">{bt.emoji}</div>
             <h3 className={`text-[2rem] mb-1 ${bt.text}`}>{bt.count}</h3>
-            <p className="text-[0.9375rem] text-muted-foreground">{bt.label} Behaviors</p>
+            <p className="text-[0.9375rem] text-muted-foreground">{t('teacherBehaviorTracking.behaviorCount', { label: t(`teacherBehaviorTracking.types.${bt.key}`) })}</p>
           </m.div>
         ))}
       </div>
 
       <div className="bg-white rounded-3xl p-8 shadow-lg border border-border mb-8">
-        <h2 className="text-lg font-semibold mb-6">New Behavior Record</h2>
+        <h2 className="text-lg font-semibold mb-6">{t('teacherBehaviorTracking.newRecord')}</h2>
 
         {user?.role === 'teacher' && form.studentId && !canCreateBehavior ? (
           <p className="mb-4 p-3 bg-muted/40 text-sm text-muted-foreground rounded-xl">
-            Read-only: only Main teacher can create behavior records for the selected student.
+            {t('teacherBehaviorTracking.readOnlySelected')}
           </p>
         ) : null}
 
@@ -166,7 +168,7 @@ export function BehaviorTracking({ embedded = false }) {
         )}
         {submitSuccess && (
           <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-xl text-sm">
-            ✅ Behavior record saved successfully!
+            {t('teacherBehaviorTracking.saved')}
           </div>
         )}
 
@@ -174,7 +176,7 @@ export function BehaviorTracking({ embedded = false }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium mb-1">
-                Student <span className="text-destructive">*</span>
+                {t('teacherBehaviorTracking.studentLabel')} <span className="text-destructive">*</span>
               </label>
               <select
                 name="studentId"
@@ -183,7 +185,7 @@ export function BehaviorTracking({ embedded = false }) {
                 disabled={studentsLoading}
                 className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
               >
-                <option value="">Select a student…</option>
+                <option value="">{t('teacherBehaviorTracking.selectStudentOption')}</option>
                 {students.map((s) => (
                   <option key={s._id} value={s._id}>
                     {s.name}
@@ -193,7 +195,7 @@ export function BehaviorTracking({ embedded = false }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Behavior Type</label>
+              <label className="block text-sm font-medium mb-1">{t('teacherBehaviorTracking.behaviorType')}</label>
               <div className="grid grid-cols-2 gap-2">
                 {BEHAVIOR_TYPES.map((bt) => (
                   <button
@@ -208,7 +210,7 @@ export function BehaviorTracking({ embedded = false }) {
                     }`}
                   >
                     <span className="text-xl">{bt.emoji}</span>
-                    <span className="text-xs mt-1">{bt.label}</span>
+                    <span className="text-xs mt-1">{t(`teacherBehaviorTracking.types.${bt.key}`)}</span>
                   </button>
                 ))}
               </div>
@@ -217,18 +219,18 @@ export function BehaviorTracking({ embedded = false }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
-              <label className="block text-sm font-medium mb-1">Note</label>
+              <label className="block text-sm font-medium mb-1">{t('teacherBehaviorTracking.note')}</label>
               <input
                 name="description"
                 value={form.description}
                 onChange={handleChange}
-                placeholder="What happened? (optional)"
+                placeholder={t('teacherBehaviorTracking.notePlaceholder')}
                 className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
                 disabled={!canCreateBehavior}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Date</label>
+              <label className="block text-sm font-medium mb-1">{t('teacherBehaviorTracking.date')}</label>
               <input
                 name="date"
                 type="date"
@@ -245,21 +247,21 @@ export function BehaviorTracking({ embedded = false }) {
             disabled={submitting || !canCreateBehavior}
             className="bg-primary text-white px-8 py-3 rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-60"
           >
-            {submitting ? 'Saving…' : 'Save Behavior Record'}
+            {submitting ? t('teacherBehaviorTracking.saving') : t('teacherBehaviorTracking.saveRecord')}
           </button>
         </form>
       </div>
 
       <div className="bg-white rounded-3xl p-8 shadow-lg border border-border">
-        <h2 className="text-lg font-semibold mb-6">Recent Records</h2>
+        <h2 className="text-lg font-semibold mb-6">{t('teacherBehaviorTracking.recentRecords')}</h2>
 
         {behaviorsLoading ? (
-          <p className="text-center py-8 text-muted-foreground">Loading records…</p>
+          <p className="text-center py-8 text-muted-foreground">{t('teacherBehaviorTracking.loadingRecords')}</p>
         ) : behaviorsError ? (
           <p className="text-center py-8 text-destructive">{behaviorsError}</p>
         ) : behaviors.length === 0 ? (
           <p className="text-center py-8 text-muted-foreground">
-            No behavior records yet.
+            {t('teacherBehaviorTracking.noRecords')}
           </p>
         ) : (
           <div className="space-y-3">
@@ -284,7 +286,7 @@ export function BehaviorTracking({ embedded = false }) {
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full border ${bt.bg} ${bt.border} ${bt.text}`}
                       >
-                        {bt.label}
+                        {t(`teacherBehaviorTracking.types.${bt.key}`)}
                       </span>
                     </div>
                     {text ? (

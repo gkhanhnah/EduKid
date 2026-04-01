@@ -1,27 +1,30 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { BookOpen, Calendar, Loader2 } from 'lucide-react'
-import { getHomeworksForParent } from '../services/homework.service.js'
-import { useParentChild } from '../context/ParentChildContext.jsx'
+import { useTranslation } from 'react-i18next'
+import { getHomeworksForParent } from '../../services/homework.service.js'
+import { useParentChild } from '../../context/ParentChildContext.jsx'
+import { formatDateTime } from '../../utils/locale.js'
 
 function formatDue(iso) {
   if (!iso) return '—'
   const d = new Date(iso)
   if (!Number.isFinite(d.getTime())) return '—'
-  return d.toLocaleString(undefined, {
+  return formatDateTime(d, {
     dateStyle: 'medium',
     timeStyle: 'short',
   })
 }
 
-function statusLabel(displayStatus) {
-  if (displayStatus === 'DONE') return { text: 'Done', className: 'bg-emerald-500/15 text-emerald-700' }
+function statusLabel(displayStatus, t) {
+  if (displayStatus === 'DONE') return { text: t('parentHomework.done'), className: 'bg-emerald-500/15 text-emerald-700' }
   if (displayStatus === 'OVERDUE')
-    return { text: 'Overdue', className: 'bg-destructive/15 text-destructive' }
-  return { text: 'Pending', className: 'bg-amber-500/15 text-amber-800' }
+    return { text: t('parentHomework.overdue'), className: 'bg-destructive/15 text-destructive' }
+  return { text: t('parentHomework.pending'), className: 'bg-amber-500/15 text-amber-800' }
 }
 
 export function ParentHomework() {
+  const { t } = useTranslation()
   const { selectedStudentId, selectedStudent, linkedChildren } = useParentChild()
   const [homeworks, setHomeworks] = useState([])
   const [loading, setLoading] = useState(true)
@@ -45,7 +48,7 @@ export function ParentHomework() {
         if (!cancelled) setHomeworks(Array.isArray(data.homeworks) ? data.homeworks : [])
       } catch (e) {
         if (!cancelled) {
-          setError(e?.response?.data?.error || e?.message || 'Could not load homework.')
+          setError(e?.response?.data?.error || e?.message || t('parentHomework.loadFailed'))
           setHomeworks([])
         }
       } finally {
@@ -70,13 +73,12 @@ export function ParentHomework() {
               <BookOpen className="h-6 w-6" aria-hidden />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Homework</h1>
+              <h1 className="text-2xl font-bold text-foreground">{t('common.homework')}</h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 {linkedChildren.length > 1 && selectedStudent
-                  ? `Assignments for ${selectedStudent.name || 'the selected child'}. `
-                  : 'Assignments for your linked children. '}
-                When the school has email set up, you may also receive deadline reminders in your
-                inbox.
+                  ? t('parentHomework.assignmentsForSelectedChild', { name: selectedStudent.name || t('parentHomework.selectedChild') })
+                  : t('parentHomework.assignmentsForLinkedChildren')}
+                {t('parentHomework.emailReminderHint')}
               </p>
             </div>
           </div>
@@ -85,7 +87,7 @@ export function ParentHomework() {
         {loading ? (
           <div className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-white py-16 text-muted-foreground shadow-sm">
             <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-            <span>Loading assignments…</span>
+            <span>{t('parentHomework.loadingAssignments')}</span>
           </div>
         ) : error ? (
           <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-destructive">
@@ -95,8 +97,8 @@ export function ParentHomework() {
           <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground shadow-sm">
             <p>
               {homeworks.length > 0 && linkedChildren.length > 1
-                ? 'No homework for the selected child right now.'
-                : 'No homework assigned to your children yet.'}
+                ? t('parentHomework.noHomeworkForSelectedChild')
+                : t('parentHomework.noHomeworkForChildren')}
             </p>
           </div>
         ) : (
@@ -106,12 +108,12 @@ export function ParentHomework() {
                 hw.classId && typeof hw.classId === 'object'
                   ? hw.classId
                   : null
-              const className = cls?.name ?? 'Class'
+              const className = cls?.name ?? t('parentHomework.classFallback')
               const kids =
                 Array.isArray(hw.myChildrenNames) && hw.myChildrenNames.length
                   ? hw.myChildrenNames.join(', ')
-                  : 'Your child'
-              const st = statusLabel(hw.displayStatus)
+                  : t('common.yourChild')
+              const st = statusLabel(hw.displayStatus, t)
               return (
                 <li
                   key={hw._id}
@@ -133,7 +135,7 @@ export function ParentHomework() {
                   <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                     <span className="inline-flex items-center gap-1.5">
                       <Calendar className="h-4 w-4 shrink-0" aria-hidden />
-                      Due {formatDue(hw.dueDate)}
+                      {t('parentHomework.due')} {formatDue(hw.dueDate)}
                     </span>
                   </div>
                   {hw.description?.trim() ? (

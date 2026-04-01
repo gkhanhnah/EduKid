@@ -1,4 +1,5 @@
 import { httpClient } from './httpClient.js'
+import { getUiErrorMessage } from '../utils/errorMessages.js'
 
 /**
  * Backend expects lowercase roles: teacher | parent | student
@@ -37,10 +38,7 @@ export async function loginUser({ email, password }) {
  * Extract error message from axios error (Express { error: string })
  */
 export function getAuthErrorMessage(err) {
-  const msg = err?.response?.data?.error
-  if (typeof msg === 'string' && msg.trim()) return msg
-  if (err?.message === 'Network Error') return 'Network error. Check your connection and API URL.'
-  return 'Something went wrong. Please try again.'
+  return getUiErrorMessage(err, 'auth.errors.loginFailed')
 }
 
 export { httpClient }

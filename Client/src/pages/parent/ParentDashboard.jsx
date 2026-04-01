@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import {
   Award,
   Calendar,
@@ -8,10 +9,12 @@ import {
   MessageCircle,
   TrendingUp,
 } from 'lucide-react'
-import { useAuth } from '../hooks/useAuth.js'
-import { useParentChild } from '../context/ParentChildContext.jsx'
-import { useBehaviors } from '../hooks/useBehaviors.js'
-import { useEvaluations } from '../hooks/useEvaluations.js'
+import { useAuth } from '../../hooks/useAuth.js'
+import { useParentChild } from '../../context/ParentChildContext.jsx'
+import { useBehaviors } from '../../hooks/useBehaviors.js'
+import { useEvaluations } from '../../hooks/useEvaluations.js'
+import i18n from '../../i18n/index.js'
+import { formatDateTime } from '../../utils/locale.js'
 function classLabel(student) {
   if (student?.classId && typeof student.classId === 'object') {
     return student.classId.name ?? '—'
@@ -99,18 +102,18 @@ function todayStats(behaviors) {
 
 function overallBehaviorLabel({ good, active, bad, tired = 0 }) {
   const total = good + active + bad + tired
-  if (total === 0) return 'No reports today'
-  if (bad > good && bad > 0) return 'Needs attention'
-  if (bad > 0 && good >= bad) return 'Good overall'
-  if (good >= 4 || (good >= 2 && bad === 0)) return 'Excellent'
-  if (good > 0 || active > 0) return 'Good'
-  return 'Keep in touch'
+  if (total === 0) return i18n.t('parentDashboard.noReportsToday')
+  if (bad > good && bad > 0) return i18n.t('parentDashboard.needsAttention')
+  if (bad > 0 && good >= bad) return i18n.t('parentDashboard.goodOverall')
+  if (good >= 4 || (good >= 2 && bad === 0)) return i18n.t('parentDashboard.excellent')
+  if (good > 0 || active > 0) return i18n.t('parentDashboard.good')
+  return i18n.t('parentDashboard.keepInTouch')
 }
 
 function achievementsLabel(evaluations) {
-  if (!evaluations.length) return '—'
+  if (!evaluations.length) return i18n.t('common.none')
   const n = Math.min(5, evaluations.length)
-  return n === 1 ? '1 Star' : `${n} Stars`
+  return i18n.t('parentDashboard.stars', { count: n })
 }
 
 function behaviorText(b) {
@@ -122,7 +125,7 @@ function latestTeacherNote(behaviors, childName) {
     .filter((b) => behaviorText(b))
     .sort((a, b) => behaviorTimestamp(b) - behaviorTimestamp(a))
   if (withText.length) return behaviorText(withText[0])
-  return `${childName} is doing well. Teachers will add notes here when they log behavior or observations.`
+  return i18n.t('parentDashboard.latestTeacherNoteFallback', { childName })
 }
 
 function activitiesFromTodayBehaviors(behaviors) {
@@ -133,7 +136,7 @@ function activitiesFromTodayBehaviors(behaviors) {
     .map((b) => {
       const type = (b.behaviorType ?? b.type ?? '').toString().toUpperCase()
       const t = behaviorTimestamp(b)
-      const timeStr = t.toLocaleTimeString(undefined, {
+      const timeStr = formatDateTime(t, {
         hour: 'numeric',
         minute: '2-digit',
       })
@@ -143,19 +146,19 @@ function activitiesFromTodayBehaviors(behaviors) {
       if (type === 'GOOD') {
         icon = '👍'
         color = 'bg-secondary'
-        activity = behaviorText(b) || 'Good behavior noted'
+        activity = behaviorText(b) || i18n.t('parentDashboard.goodBehaviorNoted')
       } else if (type === 'BAD') {
         icon = '👎'
         color = 'bg-destructive'
-        activity = behaviorText(b) || 'Needs attention'
+        activity = behaviorText(b) || i18n.t('parentDashboard.needsAttention')
       } else if (type === 'ACTIVE' || type === 'NOTE') {
         icon = '⭐'
         color = 'bg-primary'
-        activity = behaviorText(b) || 'Active participation'
+        activity = behaviorText(b) || i18n.t('parentDashboard.activeParticipation')
       } else if (type === 'SLEEPY') {
         icon = '😴'
         color = 'bg-[#F59E0B]/30'
-        activity = behaviorText(b) || 'Tired / low energy'
+        activity = behaviorText(b) || i18n.t('parentDashboard.tiredLowEnergy')
       }
       return { time: timeStr, activity, icon, color }
     })
@@ -173,7 +176,7 @@ function scoreLine(scores) {
 function EvaluationList({ evaluations, loading, error }) {
   if (loading) {
     return (
-      <p className="text-sm text-muted-foreground py-2">Loading evaluations…</p>
+      <p className="text-sm text-muted-foreground py-2">{i18n.t('parentDashboard.loadingEvaluations')}</p>
     )
   }
   if (error) {
@@ -181,7 +184,7 @@ function EvaluationList({ evaluations, loading, error }) {
   }
   if (!evaluations.length) {
     return (
-      <p className="text-sm text-muted-foreground py-2">No evaluations yet.</p>
+      <p className="text-sm text-muted-foreground py-2">{i18n.t('parentDashboard.noEvaluationsYet')}</p>
     )
   }
   return (
@@ -195,12 +198,10 @@ function EvaluationList({ evaluations, loading, error }) {
           >
             <div className="flex flex-wrap justify-between gap-2 text-muted-foreground">
               <span className="font-medium text-foreground">
-                {ev.period || 'Period —'}
+                {ev.period || i18n.t('parentDashboard.periodFallback')}
               </span>
               <span>
-                {ev.createdAt
-                  ? new Date(ev.createdAt).toLocaleDateString()
-                  : '—'}
+                {ev.createdAt ? formatDateTime(ev.createdAt, { dateStyle: 'short' }) : i18n.t('common.none')}
               </span>
             </div>
             {scoresText ? (
@@ -213,7 +214,7 @@ function EvaluationList({ evaluations, loading, error }) {
               typeof ev.teacherId === 'object' &&
               ev.teacherId.name ? (
               <p className="text-xs text-muted-foreground mt-2">
-                Teacher: {ev.teacherId.name}
+                {i18n.t('parentDashboard.teacherLabel')}: {ev.teacherId.name}
               </p>
             ) : null}
           </li>
@@ -227,7 +228,7 @@ function BehaviorList({ behaviors, loading, error }) {
   if (loading) {
     return (
       <p className="text-sm text-muted-foreground py-2">
-        Loading behavior history…
+        {i18n.t('parentDashboard.loadingBehaviorHistory')}
       </p>
     )
   }
@@ -237,17 +238,17 @@ function BehaviorList({ behaviors, loading, error }) {
   if (!behaviors.length) {
     return (
       <p className="text-sm text-muted-foreground py-2">
-        No behavior records yet.
+        {i18n.t('parentDashboard.noBehaviorRecordsYet')}
       </p>
     )
   }
   return (
     <ul className="mt-4 space-y-2">
       {behaviors.slice(0, 20).map((b) => {
-        const type = b.behaviorType ?? b.type ?? '—'
+        const type = b.behaviorType ?? b.type ?? i18n.t('common.none')
         const when = b.date
-          ? new Date(b.date).toLocaleDateString()
-          : new Date(b.createdAt).toLocaleDateString()
+          ? formatDateTime(b.date, { dateStyle: 'short' })
+          : formatDateTime(b.createdAt, { dateStyle: 'short' })
         const text = behaviorText(b)
         return (
           <li
@@ -296,14 +297,14 @@ function WeeklyBars({ weeklyProgress }) {
                 animate={{ height: `${activeH}px` }}
                 transition={{ delay: 0.6 + index * 0.1 }}
                 className="bg-primary rounded-t-xl w-full min-h-0"
-                title={`Active: ${day.active}`}
+                title={i18n.t('parentDashboard.activeTitle', { count: day.active })}
               />
               <motion.div
                 initial={{ height: 0 }}
                 animate={{ height: `${goodH}px` }}
                 transition={{ delay: 0.6 + index * 0.1 }}
                 className="bg-secondary rounded-b-xl w-full min-h-0"
-                title={`Good: ${day.good}`}
+                title={i18n.t('parentDashboard.goodTitle', { count: day.good })}
               />
             </div>
             <span className="text-[0.875rem] text-muted-foreground">
@@ -317,8 +318,9 @@ function WeeklyBars({ weeklyProgress }) {
 }
 
 function ChildDashboardPanels({ student, linkItem }) {
+  const { t } = useTranslation()
   const sid = student._id ?? student.id
-  const childName = student.name || 'Your child'
+  const childName = student.name || t('common.yourChild')
 
   const {
     behaviors,
@@ -351,28 +353,28 @@ function ChildDashboardPanels({ student, linkItem }) {
     {
       type: 'good',
       icon: '👍',
-      label: 'Good Behavior',
+      label: t('parentDashboard.goodBehavior'),
       count: stats.good,
       color: 'text-secondary',
     },
     {
       type: 'active',
       icon: '⭐',
-      label: 'Active',
+      label: t('parentDashboard.active'),
       count: stats.active,
       color: 'text-primary',
     },
     {
       type: 'sleepy',
       icon: '😴',
-      label: 'Tired',
+      label: t('parentDashboard.tired'),
       count: stats.tired,
       color: 'text-[#F59E0B]',
     },
     {
       type: 'bad',
       icon: '👎',
-      label: 'Needs Attention',
+      label: t('parentDashboard.needsAttentionLabel'),
       count: stats.bad,
       color: 'text-destructive',
     },
@@ -384,7 +386,7 @@ function ChildDashboardPanels({ student, linkItem }) {
     <>
       {linkItem?.relationship ? (
         <p className="text-sm text-muted-foreground mb-6">
-          Relationship:{' '}
+          {t('parentDashboard.relationship')}:{' '}
           <span className="font-medium text-foreground">
             {linkItem.relationship}
           </span>
@@ -431,14 +433,14 @@ function ChildDashboardPanels({ student, linkItem }) {
         >
           <div className="flex items-center gap-3 mb-6">
             <Calendar className="w-6 h-6 text-primary" />
-            <h2 className="text-lg font-semibold">Today&apos;s Summary</h2>
+          <h2 className="text-lg font-semibold">{t('parentDashboard.todaySummary')}</h2>
           </div>
 
           <div className="space-y-4 mb-6">
             <div className="flex items-center justify-between p-4 rounded-2xl bg-secondary/10">
               <div className="flex items-center gap-3">
                 <TrendingUp className="w-5 h-5 text-secondary" />
-                <span className="text-[0.9375rem]">Overall Behavior</span>
+                <span className="text-[0.9375rem]">{t('parentDashboard.overallBehavior')}</span>
               </div>
               <span className="text-[1.125rem] text-secondary font-medium">
                 {dataLoading ? '…' : overall}
@@ -448,7 +450,7 @@ function ChildDashboardPanels({ student, linkItem }) {
             <div className="flex items-center justify-between p-4 rounded-2xl bg-primary/10">
               <div className="flex items-center gap-3">
                 <Award className="w-5 h-5 text-primary" />
-                <span className="text-[0.9375rem]">Achievements</span>
+                <span className="text-[0.9375rem]">{t('parentDashboard.achievements')}</span>
               </div>
               <span className="text-[1.125rem] text-primary font-medium">
                 {evLoading ? '…' : achievements}
@@ -458,7 +460,7 @@ function ChildDashboardPanels({ student, linkItem }) {
             <div className="flex items-center justify-between p-4 rounded-2xl bg-accent">
               <div className="flex items-center gap-3">
                 <Clock className="w-5 h-5 text-muted-foreground" />
-                <span className="text-[0.9375rem]">Class</span>
+                <span className="text-[0.9375rem]">{t('parentDashboard.class')}</span>
               </div>
               <div className="text-right">
                 <span className="block text-[1.125rem] text-secondary font-medium truncate max-w-[240px]">
@@ -469,7 +471,7 @@ function ChildDashboardPanels({ student, linkItem }) {
                     to={`/classes/${classIdValue(student)}/timetable`}
                     className="text-xs text-primary hover:underline"
                   >
-                    View timetable
+                    {t('parentDashboard.viewTimetable')}
                   </Link>
                 ) : null}
                 {sid ? (
@@ -477,7 +479,7 @@ function ChildDashboardPanels({ student, linkItem }) {
                     to={`/students/${sid}/grades`}
                     className="ml-3 text-xs text-primary hover:underline inline-block"
                   >
-                    View grades
+                    {t('parentDashboard.viewGrades')}
                   </Link>
                 ) : null}
               </div>
@@ -485,9 +487,9 @@ function ChildDashboardPanels({ student, linkItem }) {
           </div>
 
           <div className="pt-6 border-t border-border">
-            <h4 className="mb-3 font-medium">Teacher&apos;s Note</h4>
+            <h4 className="mb-3 font-medium">{t('parentDashboard.teachersNote')}</h4>
             <p className="text-[0.9375rem] text-muted-foreground p-4 bg-[#FEF3C7] rounded-2xl">
-              {dataLoading ? 'Loading…' : `“${note}”`}
+              {dataLoading ? t('common.loading') : `“${note}”`}
             </p>
           </div>
         </motion.div>
@@ -500,12 +502,12 @@ function ChildDashboardPanels({ student, linkItem }) {
         >
           <div className="flex items-center gap-3 mb-6">
             <TrendingUp className="w-6 h-6 text-primary" />
-            <h2 className="text-lg font-semibold">Weekly Progress</h2>
+            <h2 className="text-lg font-semibold">{t('parentDashboard.weeklyProgress')}</h2>
           </div>
 
           {dataLoading ? (
             <div className="h-64 flex items-center justify-center text-muted-foreground text-sm">
-              Loading chart…
+              {t('parentDashboard.loadingChart')}
             </div>
           ) : (
             <WeeklyBars weeklyProgress={weeklyProgress} />
@@ -514,11 +516,11 @@ function ChildDashboardPanels({ student, linkItem }) {
           <div className="flex items-center justify-center gap-6 text-[0.875rem]">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded bg-primary" />
-              <span>Active (notes)</span>
+              <span>{t('parentDashboard.activeNotes')}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded bg-secondary" />
-              <span>Good Behavior</span>
+              <span>{t('parentDashboard.goodBehavior')}</span>
             </div>
           </div>
         </motion.div>
@@ -532,7 +534,7 @@ function ChildDashboardPanels({ student, linkItem }) {
       >
         <div className="flex items-center gap-3 mb-6">
           <Clock className="w-6 h-6 text-primary" />
-          <h2 className="text-lg font-semibold">Today&apos;s Activities</h2>
+          <h2 className="text-lg font-semibold">{t('parentDashboard.todaysActivities')}</h2>
         </div>
 
         {dataLoading ? (
@@ -543,8 +545,7 @@ function ChildDashboardPanels({ student, linkItem }) {
           </div>
         ) : activities.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4">
-            No behavior entries for today yet. When teachers log activities, they
-            will show up here.
+            {t('parentDashboard.noBehaviorEntriesToday')}
           </p>
         ) : (
           <div className="space-y-4">
@@ -583,12 +584,12 @@ function ChildDashboardPanels({ student, linkItem }) {
         <Link to="/messages" className="block">
           <div className="bg-gradient-to-br from-primary to-secondary text-white rounded-3xl p-8 shadow-lg hover:shadow-xl transition-all cursor-pointer h-full">
             <MessageCircle className="w-12 h-12 mb-4" />
-            <h3 className="text-[1.5rem] mb-2 font-semibold">Message Teacher</h3>
+            <h3 className="text-[1.5rem] mb-2 font-semibold">{t('parentDashboard.messageTeacher')}</h3>
             <p className="text-[1rem] opacity-90">
-              Have questions? Send a message to your child&apos;s teacher.
+              {t('parentDashboard.messageTeacherDescription')}
             </p>
             <div className="mt-6 inline-flex items-center gap-2 text-[0.9375rem]">
-              View Messages
+              {t('parentDashboard.viewMessages')}
               <span aria-hidden>→</span>
             </div>
           </div>
@@ -597,7 +598,7 @@ function ChildDashboardPanels({ student, linkItem }) {
         <div
           role="button"
           tabIndex={0}
-          aria-label="Scroll to full evaluation history"
+          aria-label={t('parentDashboard.scrollToEvaluationHistory')}
           onClick={() =>
             document
               .getElementById('parent-full-evaluation-history')
@@ -613,13 +614,12 @@ function ChildDashboardPanels({ student, linkItem }) {
           className="bg-gradient-to-br from-secondary to-[#22C55E]/70 text-white rounded-3xl p-8 shadow-lg hover:shadow-xl transition-all cursor-pointer h-full outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-secondary"
         >
           <Award className="w-12 h-12 mb-4" />
-          <h3 className="text-[1.5rem] mb-2 font-semibold">Teacher evaluations</h3>
+          <h3 className="text-[1.5rem] mb-2 font-semibold">{t('parentDashboard.teacherEvaluations')}</h3>
           <p className="text-[1rem] opacity-90">
-            Scores and comments from recent terms are listed below for{' '}
-            {childName}.
+            {t('parentDashboard.teacherEvaluationsDescription', { childName })}
           </p>
           <div className="mt-6 inline-flex items-center gap-2 text-[0.9375rem]">
-            See details below
+            {t('parentDashboard.seeDetailsBelow')}
             <span aria-hidden>↓</span>
           </div>
         </div>
@@ -634,7 +634,7 @@ function ChildDashboardPanels({ student, linkItem }) {
         <div id="parent-full-evaluation-history">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Award className="w-5 h-5 text-primary" />
-            Full evaluation history
+            {t('parentDashboard.fullEvaluationHistory')}
           </h3>
           <EvaluationList
             evaluations={evaluations}
@@ -645,7 +645,7 @@ function ChildDashboardPanels({ student, linkItem }) {
         <div className="border-t border-border pt-10">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-secondary" />
-            Full behavior history
+            {t('parentDashboard.fullBehaviorHistory')}
           </h3>
           <BehaviorList
             behaviors={behaviors}
@@ -685,9 +685,10 @@ function evaluationStudentId(ev) {
 }
 
 function ParentDashboardOverview() {
+  const { t } = useTranslation()
   const { overview, selectedStudentId, selectedStudent } = useParentChild()
   const sid = selectedStudentId
-  const childName = selectedStudent?.name || 'this child'
+  const childName = selectedStudent?.name || t('parentDashboard.thisChild')
 
   const summaryRaw = overview.behaviorSummaryByChild || []
   const evaluationsRaw = overview.latestEvaluations || []
@@ -710,8 +711,8 @@ function ParentDashboardOverview() {
     return (
       <div className="mb-8 rounded-3xl border border-dashed border-border bg-white/90 p-6 text-sm text-muted-foreground shadow-sm">
         {sid
-          ? `When teachers add behaviors and evaluations for ${childName}, they will show here.`
-          : 'When teachers add behaviors and evaluations, a summary for your children will show here.'}
+          ? t('parentDashboard.summaryEmptySingle', { childName })
+          : t('parentDashboard.summaryEmptyAll')}
       </div>
     )
   }
@@ -728,11 +729,11 @@ function ParentDashboardOverview() {
             <div className="flex items-center gap-2 mb-4">
               <TrendingUp className="w-5 h-5 text-secondary" />
               <h3 className="font-semibold text-lg">
-                {sid ? `Behavior · ${childName}` : 'Behavior summary by child'}
+                {sid ? t('parentDashboard.behaviorForChild', { childName }) : t('parentDashboard.behaviorSummaryByChild')}
               </h3>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
-              Totals from logged behaviors (good, active, sleepy, needs attention).
+              {t('parentDashboard.behaviorSummaryHelp')}
             </p>
             <div className="space-y-3 overflow-y-auto">
               {summary.map((s) => (
@@ -743,16 +744,16 @@ function ParentDashboardOverview() {
                   <p className="font-medium text-foreground">{s.studentName}</p>
                   <div className="flex flex-wrap gap-4 mt-2 text-sm">
                     <span className="text-secondary font-medium tabular-nums">
-                      👍 Good · {s.good ?? 0}
+                      👍 {t('parentDashboard.good')} · {s.good ?? 0}
                     </span>
                     <span className="text-primary font-medium tabular-nums">
-                      ⭐ Active · {s.active ?? s.notes ?? 0}
+                      ⭐ {t('parentDashboard.active')} · {s.active ?? s.notes ?? 0}
                     </span>
                     <span className="text-[#F59E0B] font-medium tabular-nums">
-                      😴 Sleepy · {s.sleepy ?? 0}
+                      😴 {t('parentDashboard.sleepy')} · {s.sleepy ?? 0}
                     </span>
                     <span className="text-destructive font-medium tabular-nums">
-                      👎 Attention · {s.bad ?? 0}
+                      👎 {t('parentDashboard.attention')} · {s.bad ?? 0}
                     </span>
                   </div>
                 </div>
@@ -771,7 +772,7 @@ function ParentDashboardOverview() {
           <div className="flex items-center gap-2 mb-4">
             <Award className="w-5 h-5 text-primary" />
             <h3 className="font-semibold text-lg">
-              {sid ? `Latest evaluations · ${childName}` : 'Latest evaluations'}
+              {sid ? t('parentDashboard.latestEvaluationsForChild', { childName }) : t('parentDashboard.latestEvaluations')}
             </h3>
           </div>
 
@@ -814,7 +815,7 @@ function ParentDashboardOverview() {
           ) : (
             // Giao diện khi mảng rỗng hoặc không có evaluation
             <div className="flex flex-1 items-center justify-center rounded-2xl border-2 border-dashed border-border/60 bg-muted/10 p-8 text-center text-sm text-muted-foreground">
-              No evaluations available yet.
+              {t('parentDashboard.noEvaluationsAvailable')}
             </div>
           )}
         </motion.div>
@@ -830,26 +831,34 @@ function ParentDashboardOverview() {
           <div className="flex items-center gap-2 mb-4">
             <Clock className="w-5 h-5 text-primary" />
             <h3 className="font-semibold text-lg">
-              {sid ? `Recent activity · ${childName}` : 'Recent activity (all children)'}
+              {sid ? t('parentDashboard.recentActivityForChild', { childName }) : t('parentDashboard.recentActivityAllChildren')}
             </h3>
           </div>
-          <ul className="space-y-2 divide-y divide-border/60">
+          <ul className="space-y-3">
             {recent.slice(0, sid ? 15 : 10).map((b) => (
-              <li key={b._id} className="pt-2 first:pt-0 text-sm flex flex-wrap gap-x-3 gap-y-1">
-                <span className="font-medium text-primary">
-                  {b.behaviorType ?? b.type}
-                </span>
-                <span className="text-muted-foreground">{b.student?.name}</span>
-                <span className="text-xs text-muted-foreground ml-auto">
-                  {b.createdAt
-                    ? new Date(b.createdAt).toLocaleString(undefined, {
-                      dateStyle: 'short',
-                      timeStyle: 'short',
-                    })
-                    : ''}
-                </span>
+              <li
+                key={b._id}
+                className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-3 text-sm"
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                        {b.behaviorType ?? b.type}
+                      </span>
+                      <span className="truncate text-muted-foreground">
+                        {b.student?.name}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {b.createdAt ? formatDateTime(b.createdAt, { dateStyle: 'short', timeStyle: 'short' }) : ''}
+                  </span>
+                </div>
                 {behaviorText(b) ? (
-                  <span className="w-full text-foreground">{behaviorText(b)}</span>
+                  <p className="mt-3 rounded-xl bg-white px-3 py-2 text-foreground shadow-sm">
+                    <span className="font-medium">{t('parentDashboard.teachersNoteLabel')}:</span> {behaviorText(b)}
+                  </p>
                 ) : null}
               </li>
             ))}
@@ -861,6 +870,7 @@ function ParentDashboardOverview() {
 }
 
 export function ParentDashboardHome() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const {
     linkedChildren: children,
@@ -872,9 +882,9 @@ export function ParentDashboardHome() {
     selectedIndex,
   } = useParentChild()
 
-  const displayName = selectedStudent?.name || 'your child'
+  const displayName = selectedStudent?.name || t('common.yourChild')
   const clsId = selectedStudent ? classIdValue(selectedStudent) : null
-  const clsName = selectedStudent ? classLabel(selectedStudent) : '—'
+  const clsName = selectedStudent ? classLabel(selectedStudent) : t('common.none')
 
   return (
     <div className="min-h-full bg-background">
@@ -882,9 +892,9 @@ export function ParentDashboardHome() {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>
-              <h1 className="text-[2rem] font-bold mb-2">Parent Dashboard</h1>
+              <h1 className="text-[2rem] font-bold mb-2">{t('parentDashboard.title')}</h1>
               <p className="text-[1.125rem] opacity-90">
-                Welcome back! Here&apos;s how {displayName} is doing
+                {t('parentDashboard.welcomeBack', { displayName })}
               </p>
               {/* {children.length > 1 ? (
                 <p className="mt-3 max-w-xl text-sm text-white/85">
@@ -909,7 +919,7 @@ export function ParentDashboardHome() {
       <div className="max-w-7xl mx-auto p-8">
         {loading ? (
           <div className="rounded-3xl border border-border bg-white p-12 text-center text-muted-foreground shadow-lg">
-            Loading…
+            {t('common.loading')}
           </div>
         ) : error ? (
           <div className="rounded-3xl border border-destructive/30 bg-destructive/5 p-6 text-destructive flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -919,17 +929,16 @@ export function ParentDashboardHome() {
               onClick={reload}
               className="text-sm underline shrink-0"
             >
-              Try again
+              {t('common.tryAgain')}
             </button>
           </div>
         ) : children.length === 0 ? (
           <div className="rounded-3xl border border-border bg-white p-12 text-center shadow-lg">
-            <p className="text-muted-foreground mb-2">No children linked yet.</p>
+            <p className="text-muted-foreground mb-2">{t('parentDashboard.noChildrenLinked')}</p>
             <p className="text-sm text-muted-foreground">
-              Your teacher will connect your account to your child&apos;s profile. If
-              you just registered, ask the teacher to use your email (
+              {t('parentDashboard.noChildrenLinkedHelpPrefix')} (
               <span className="font-medium text-foreground">{user?.email}</span>)
-              when linking.
+              {t('parentDashboard.noChildrenLinkedHelpSuffix')}
             </p>
           </div>
         ) : selectedStudent ? (
@@ -937,7 +946,7 @@ export function ParentDashboardHome() {
             <div className="mb-8 flex flex-col gap-4 rounded-3xl border border-border bg-white p-5 shadow-lg sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Class for {displayName}
+                  {t('parentDashboard.classFor', { displayName })}
                 </p>
                 <p className="mt-1 truncate text-lg font-semibold text-foreground">
                   {clsName}
@@ -949,18 +958,18 @@ export function ParentDashboardHome() {
                     to={`/classes/${clsId}/timetable`}
                     className="inline-flex items-center justify-center rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
                   >
-                    Timetable
+                    {t('parentDashboard.timetable')}
                   </Link>
                   <Link
                     to={`/classes/${clsId}/chat`}
                     className="inline-flex items-center justify-center rounded-xl border border-border bg-primary/30 px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/70"
                   >
-                    Class chat
+                    {t('parentDashboard.classChat')}
                   </Link>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  No class assigned — timetable and chat are unavailable.
+                  {t('parentDashboard.noClassAssigned')}
                 </p>
               )}
             </div>
@@ -973,12 +982,12 @@ export function ParentDashboardHome() {
           </>
         ) : (
           <div className="rounded-3xl border border-border bg-white p-8 text-center text-muted-foreground shadow-lg">
-            Linked child record is incomplete. Please contact support.
+            {t('parentDashboard.linkedChildIncomplete')}
           </div>
         )}
 
         <p className="text-center text-sm text-muted-foreground mt-10">
-          Need help? Contact your child&apos;s teacher.
+          {t('parentDashboard.needHelp')}
         </p>
       </div>
     </div>

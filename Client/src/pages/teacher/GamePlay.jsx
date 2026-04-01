@@ -1,16 +1,18 @@
 import { useCallback, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { games } from '../data/mockData.js'
-import { GAME_COMPONENTS } from '../games/gameRegistry.js'
+import { useTranslation } from 'react-i18next'
+import { games } from '../../data/mockData.js'
+import { GAME_COMPONENTS } from '../../games/gameRegistry.js'
 import { X, Star, Trophy, ArrowLeft } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { postGameProgress } from '../services/api.js'
+import { postGameProgress } from '../../services/api.js'
 
 /**
  * Shell: intro → play (registered mini-game) → summary.
  * Submits score to POST /api/games/progress when a round set completes.
  */
 export function GamePlay() {
+  const { t } = useTranslation()
   const { gameId } = useParams()
   const navigate = useNavigate()
   const game = games.find((g) => g.id === gameId)
@@ -40,7 +42,7 @@ export function GamePlay() {
         })
       } catch (e) {
         setProgressError(
-          e?.response?.data?.error || e?.message || 'Could not save progress',
+          e?.response?.data?.error || e?.message || t('teacherGamePlay.saveProgressFailed'),
         )
       }
     },
@@ -63,13 +65,13 @@ export function GamePlay() {
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="text-center">
           <div className="text-[4rem] mb-4">🎮</div>
-          <h2 className="text-xl font-semibold">Game not found</h2>
+          <h2 className="text-xl font-semibold">{t('teacherGamePlay.notFound')}</h2>
           <button
             type="button"
             onClick={() => navigate('/games')}
             className="mt-6 bg-primary text-white px-6 py-3 rounded-2xl"
           >
-            Back to Games
+            {t('teacherGamePlay.backToGames')}
           </button>
         </div>
       </div>
@@ -87,7 +89,7 @@ export function GamePlay() {
               type="button"
               onClick={() => navigate('/games')}
               className="p-3 hover:bg-accent rounded-2xl transition-all"
-              aria-label="Back"
+              aria-label={t('teacherGamePlay.back')}
             >
               <ArrowLeft className="w-6 h-6" />
             </button>
@@ -95,8 +97,8 @@ export function GamePlay() {
               <div className="flex items-center gap-2 text-[1.05rem]">
                 <Trophy className="w-5 h-5 text-[#F59E0B]" />
                 <span>
-                  {phase === 'play' ? 'Playing' : 'Score'}:{' '}
-                  {phase === 'summary' ? lastScore : '—'}
+                  {phase === 'play' ? t('teacherGamePlay.playing') : t('teacherGamePlay.score')}:{' '}
+                  {phase === 'summary' ? lastScore : t('common.none')}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-[1.05rem]">
@@ -108,7 +110,7 @@ export function GamePlay() {
               type="button"
               onClick={() => navigate('/games')}
               className="p-3 hover:bg-destructive/10 text-destructive rounded-2xl transition-all"
-              aria-label="Close"
+              aria-label={t('common.close')}
             >
               <X className="w-6 h-6" />
             </button>
@@ -130,7 +132,7 @@ export function GamePlay() {
           {phase === 'intro' && (
             <div className="space-y-6">
               <p className="text-muted-foreground max-w-md mx-auto">
-                Complete all rounds. Your score and time will be saved to your account.
+                {t('teacherGamePlay.introDescription')}
               </p>
               <button
                 type="button"
@@ -138,7 +140,7 @@ export function GamePlay() {
                 className="text-white px-10 py-4 rounded-2xl text-lg font-medium shadow-lg hover:opacity-95 transition-opacity"
                 style={{ backgroundColor: color }}
               >
-                Start game
+                {t('teacherGamePlay.startGame')}
               </button>
             </div>
           )}
@@ -149,15 +151,15 @@ export function GamePlay() {
 
           {phase === 'summary' && (
             <div className="space-y-6">
-              <p className="text-2xl font-semibold text-primary">Nice work!</p>
+              <p className="text-2xl font-semibold text-primary">{t('teacherGamePlay.niceWork')}</p>
               <p className="text-muted-foreground">
-                Score: <strong>{lastScore}</strong> · Time:{' '}
+                {t('teacherGamePlay.score')}: <strong>{lastScore}</strong> · {t('teacherGamePlay.time')}:{' '}
                 <strong>{lastDuration}s</strong>
               </p>
               {progressError ? (
                 <p className="text-sm text-destructive">{progressError}</p>
               ) : (
-                <p className="text-sm text-green-700">Progress saved.</p>
+                <p className="text-sm text-green-700">{t('teacherGamePlay.progressSaved')}</p>
               )}
               <div className="flex flex-wrap gap-3 justify-center">
                 <button
@@ -165,7 +167,7 @@ export function GamePlay() {
                   onClick={playAgain}
                   className="px-6 py-3 rounded-2xl border-2 border-border hover:bg-muted transition-colors"
                 >
-                  Play again
+                  {t('teacherGamePlay.playAgain')}
                 </button>
                 <button
                   type="button"
@@ -173,7 +175,7 @@ export function GamePlay() {
                   className="text-white px-6 py-3 rounded-2xl shadow-md"
                   style={{ backgroundColor: color }}
                 >
-                  All games
+                  {t('teacherGamePlay.allGames')}
                 </button>
               </div>
             </div>

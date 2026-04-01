@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Sidebar } from '../components/Sidebar.jsx'
-import { useAuth } from '../hooks/useAuth.js'
-import { getTimetable, saveTimetable } from '../services/timetable.service.js'
+import { useTranslation } from 'react-i18next'
+import { Sidebar } from '../../components/Sidebar.jsx'
+import { useAuth } from '../../hooks/useAuth.js'
+import { getTimetable, saveTimetable } from '../../services/timetable.service.js'
 import { ArrowLeft, Loader2, Plus, Save, Trash2 } from 'lucide-react'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
@@ -27,6 +28,7 @@ function formatTeacherName(value) {
 }
 
 export function Timetable() {
+  const { t } = useTranslation()
   const { classId } = useParams()
   const { user } = useAuth()
   const isTeacher = user?.role === 'teacher'
@@ -57,7 +59,7 @@ export function Timetable() {
       setEditing(Boolean((isAdmin || isMainTeacher) && (!data?.schedule || data.schedule.length === 0)))
     } catch (e) {
       setDetail(null)
-      setError(e?.response?.data?.error || e?.message || 'Failed to load timetable')
+      setError(e?.response?.data?.error || e?.message || t('teacherTimetable.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -145,7 +147,7 @@ export function Timetable() {
       setScheduleByDay(mapScheduleByDay(saved?.schedule || []))
       setEditing(false)
     } catch (e) {
-      setFormError(e?.response?.data?.error || e?.message || 'Could not save timetable')
+      setFormError(e?.response?.data?.error || e?.message || t('teacherTimetable.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -161,32 +163,32 @@ export function Timetable() {
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
-            {isAdmin ? 'Back to classes' : isParent ? 'Back to dashboard' : 'Back to class'}
+            {isAdmin ? t('teacherTimetable.backToClasses') : isParent ? t('teacherTimetable.backToDashboard') : t('teacherTimetable.backToClasses')}
           </Link>
 
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
               <Loader2 className="w-5 h-5 animate-spin" />
-              Loading timetable…
+              {t('teacherTimetable.loading')}
             </div>
           ) : error ? (
             <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-destructive">
               <p>{error}</p>
               <button type="button" onClick={load} className="mt-3 underline text-sm">
-                Retry
+                {t('common.tryAgain')}
               </button>
             </div>
           ) : (
             <>
               <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
                 <div>
-                  <h1 className="text-2xl font-semibold">Class Timetable</h1>
+                  <h1 className="text-2xl font-semibold">{t('teacherTimetable.title')}</h1>
                   <p className="text-muted-foreground mt-1">
-                    {detail?.class?.name || 'Class'}
+                    {detail?.class?.name || t('common.classes')}
                     {detail?.class?.grade !== undefined &&
                     detail?.class?.grade !== null &&
                     detail?.class?.grade !== ''
-                      ? ` · Grade ${detail.class.grade}`
+                      ? ` · ${t('teacherTimetable.grade', { grade: detail.class.grade })}`
                       : ''}
                   </p>
                 </div>
@@ -198,7 +200,7 @@ export function Timetable() {
                         onClick={() => setEditing(true)}
                         className="px-4 py-2 rounded-xl border border-border text-sm"
                       >
-                        {detail?.schedule?.length ? 'Edit Timetable' : 'Create Timetable'}
+                        {detail?.schedule?.length ? t('teacherTimetable.editTimetable') : t('teacherTimetable.createTimetable')}
                       </button>
                     ) : (
                       <>
@@ -212,7 +214,7 @@ export function Timetable() {
                           className="px-4 py-2 rounded-xl border border-border text-sm"
                           disabled={saving}
                         >
-                          Cancel
+                          {t('common.cancel')}
                         </button>
                         <button
                           type="button"
@@ -221,7 +223,7 @@ export function Timetable() {
                           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm disabled:opacity-50"
                         >
                           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                          Save
+                          {t('common.save')}
                         </button>
                       </>
                     )}
@@ -231,17 +233,17 @@ export function Timetable() {
 
               {!detail?.schedule?.length && !editing ? (
                 <div className="rounded-2xl border border-border bg-white p-10 text-center text-muted-foreground">
-                  No timetable yet
+                  {t('teacherTimetable.noTimetable')}
                 </div>
               ) : (
                 <div className="rounded-2xl border border-border bg-white shadow-sm overflow-auto">
                   <table className="min-w-full text-sm">
                     <thead className="bg-muted/40">
                       <tr>
-                        <th className="text-left p-4 font-medium w-40">Day</th>
+                        <th className="text-left p-4 font-medium w-40">{t('teacherTimetable.day')}</th>
                         {Array.from({ length: displayColumns }).map((_, i) => (
                           <th key={i} className="text-left p-4 font-medium min-w-[260px]">
-                            Period {i + 1}
+                            {t('teacherTimetable.period', { number: i + 1 })}
                           </th>
                         ))}
                       </tr>
@@ -262,7 +264,7 @@ export function Timetable() {
                                       onClick={() => handleAddPeriod(day)}
                                     >
                                       <Plus className="w-4 h-4" />
-                                      Add Period
+                                      {t('teacherTimetable.addPeriod')}
                                     </button>
                                   ) : (
                                     <span className="text-muted-foreground">—</span>
@@ -274,7 +276,7 @@ export function Timetable() {
                                       onChange={(e) =>
                                         handleChangePeriod(day, periodIdx, 'subject', e.target.value)
                                       }
-                                      placeholder="Subject"
+                                      placeholder={t('teacherTimetable.subject')}
                                       className="w-full px-3 py-2 border border-border rounded-lg"
                                     />
                                     <div className="grid grid-cols-2 gap-2">
@@ -306,7 +308,7 @@ export function Timetable() {
                                       }
                                       className="w-full px-3 py-2 border border-border rounded-lg bg-white"
                                     >
-                                      <option value="">Choose teacher</option>
+                                      <option value="">{t('teacherTimetable.chooseTeacher')}</option>
                                       {teachers.map((t) => (
                                         <option key={t._id} value={t._id}>
                                           {t.name}
@@ -319,7 +321,7 @@ export function Timetable() {
                                       className="inline-flex items-center gap-1 text-destructive hover:underline text-xs"
                                     >
                                       <Trash2 className="w-3 h-3" />
-                                      Delete
+                                      {t('common.delete')}
                                     </button>
                                   </div>
                                 ) : (
@@ -349,7 +351,7 @@ export function Timetable() {
 
               {isParent ? (
                 <p className="mt-4 text-xs text-muted-foreground">
-                  View-only mode for parent accounts.
+                  {t('teacherTimetable.parentViewOnly')}
                 </p>
               ) : null}
             </>

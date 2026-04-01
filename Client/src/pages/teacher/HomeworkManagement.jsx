@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowLeft, BookOpen, Plus } from 'lucide-react'
-import { Sidebar } from '../components/Sidebar.jsx'
-import { useAuth } from '../hooks/useAuth.js'
-import { homePathForRole } from '../utils/authPaths.js'
-import { LoadingState } from '../components/LoadingState.jsx'
-import { ErrorBanner } from '../components/ErrorBanner.jsx'
-import { getClassById, getStudents } from '../services/api.js'
-import { createHomework, getHomeworks, gradeHomework } from '../services/homework.service.js'
-import { getSubjects, getClassGrades } from '../services/grade.service.js'
+import { useTranslation } from 'react-i18next'
+import { Sidebar } from '../../components/Sidebar.jsx'
+import { useAuth } from '../../hooks/useAuth.js'
+import { homePathForRole } from '../../utils/authPaths.js'
+import { LoadingState } from '../../components/LoadingState.jsx'
+import { ErrorBanner } from '../../components/ErrorBanner.jsx'
+import { getClassById, getStudents } from '../../services/api.js'
+import { createHomework, getHomeworks, gradeHomework } from '../../services/homework.service.js'
+import { getSubjects, getClassGrades } from '../../services/grade.service.js'
+import { getUiErrorMessage } from '../../utils/errorMessages.js'
+import { formatDateTime } from '../../utils/locale.js'
 
 /** True if any grade exists for this subject+component except this homework's synced rows. */
 function hasExternalGradesForComponent(classData, subjectId, componentName, excludeHomeworkId) {
@@ -37,7 +40,7 @@ function hasExternalGradesForComponent(classData, subjectId, componentName, excl
 function formatDue(iso) {
   if (!iso) return '—'
   try {
-    return new Date(iso).toLocaleString(undefined, {
+    return formatDateTime(iso, {
       dateStyle: 'medium',
       timeStyle: 'short',
     })
@@ -46,7 +49,7 @@ function formatDue(iso) {
   }
 }
 
-function Modal({ open, title, children, onClose }) {
+function Modal({ open, title, children, onClose, closeLabel }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -55,7 +58,7 @@ function Modal({ open, title, children, onClose }) {
         onClick={onClose}
         role="button"
         tabIndex={-1}
-        aria-label="Close modal"
+        aria-label={closeLabel}
       />
       <div className="relative w-full sm:max-w-lg bg-background border border-border rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
         <div className="p-4 sm:p-6 border-b border-border flex items-center justify-between gap-3">
@@ -65,7 +68,7 @@ function Modal({ open, title, children, onClose }) {
             onClick={onClose}
             className="text-sm px-3 py-1 rounded-xl hover:bg-accent border border-border"
           >
-            Close
+            {closeLabel}
           </button>
         </div>
         <div className="p-4 sm:p-6">{children}</div>
@@ -74,7 +77,12 @@ function Modal({ open, title, children, onClose }) {
   )
 }
 
+Modal.defaultProps = {
+  closeLabel: 'Close',
+}
+
 export function HomeworkManagement() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const { classId } = useParams()
 
@@ -128,7 +136,7 @@ export function HomeworkManagement() {
       const data = await getStudents({ classId })
       setStudents(Array.isArray(data) ? data : [])
     } catch (e) {
-      setStudentsError(e?.response?.data?.error || e?.message || 'Could not load students')
+      setStudentsError(getUiErrorMessage(e, t('homeworkManagement.loadStudentsFailed')))
       setStudents([])
     } finally {
       setStudentsLoading(false)
@@ -142,7 +150,7 @@ export function HomeworkManagement() {
       const data = await getHomeworks(classId)
       setHomeworks(Array.isArray(data?.homeworks) ? data.homeworks : [])
     } catch (e) {
-      setListError(e?.response?.data?.error || e?.message || 'Could not load homework')
+      setListError(getUiErrorMessage(e, t('homeworkManagement.loadHomeworkFailed')))
       setHomeworks([])
     } finally {
       setListLoading(false)
@@ -156,7 +164,7 @@ export function HomeworkManagement() {
       const d = await getSubjects(classId)
       setSubjects(Array.isArray(d?.subjects) ? d.subjects : [])
     } catch (e) {
-      setSubjectsError(e?.response?.data?.error || e?.message || 'Could not load subjects')
+      setSubjectsError(getUiErrorMessage(e, t('homeworkManagement.loadSubjectsFailed')))
       setSubjects([])
     } finally {
       setSubjectsLoading(false)
@@ -275,16 +283,16 @@ export function HomeworkManagement() {
         return
       }
 
-      if (!gradeForm.subjectId) throw new Error('Subject is required.')
-      if (!gradeForm.gradeComponent) throw new Error('Grade component is required.')
+      if (!gradeForm.subjectId) throw new Error(t('homeworkManagement.subjectRequired'))
+      if (!gradeForm.gradeComponent) throw new Error(t('homeworkManagement.gradeComponentRequired'))
 
       const maxScoreNumber = Number(gradeForm.maxScore)
       if (!Number.isFinite(maxScoreNumber) || maxScoreNumber <= 0) {
-        throw new Error('maxScore must be a valid number > 0.')
+        throw new Error(t('homeworkManagement.maxScoreInvalid'))
       }
 
       const studentIds = (gradingHomework.studentIds ?? []).map((s) => String(s._id ?? s))
-      if (!studentIds.length) throw new Error('No students found on this homework.')
+      if (!studentIds.length) throw new Error(t('homeworkManagement.noStudentsOnHomework'))
 
       // Require every student to have a score
       const scoresPayload = {}
@@ -292,7 +300,7 @@ export function HomeworkManagement() {
         const raw = gradeForm.scores[sid]
         const n = raw === '' || raw == null ? NaN : Number(raw)
         if (!Number.isFinite(n)) {
-          throw new Error(`Please enter a valid score for student ${sid}.`)
+          throw new Error(t('homeworkManagement.validScoreForStudent', { student: sid }))
         }
         scoresPayload[sid] = n
       }
@@ -309,7 +317,7 @@ export function HomeworkManagement() {
       setGradingHomework(null)
       await loadHomeworks()
     } catch (err) {
-      setGradeError(err?.response?.data?.error || err?.message || 'Could not save grading')
+      setGradeError(getUiErrorMessage(err, t('homeworkManagement.saveGradingFailed')))
     } finally {
       setGradeBusy(false)
     }
@@ -335,7 +343,7 @@ export function HomeworkManagement() {
         setClassDetail(d ?? null)
       } catch (e) {
         if (cancelled) return
-        setClassDetailError(e?.response?.data?.error || e?.message || 'Could not load class')
+        setClassDetailError(getUiErrorMessage(e, t('errors.loadClass')))
         setClassDetail(null)
       } finally {
         if (!cancelled) setClassDetailLoading(false)
@@ -370,16 +378,16 @@ export function HomeworkManagement() {
     setFormError('')
     const t = title.trim()
     if (!t) {
-      setFormError('Title is required.')
+      setFormError(t('homeworkManagement.titleRequired'))
       return
     }
     if (!dueDate) {
-      setFormError('Due date is required.')
+      setFormError(t('homeworkManagement.dueDateRequired'))
       return
     }
     const chosen = [...selectedIds]
     if (chosen.length === 0) {
-      setFormError('Select at least one student.')
+      setFormError(t('homeworkManagement.selectOneStudent'))
       return
     }
 
@@ -400,7 +408,7 @@ export function HomeworkManagement() {
       setFormOpen(false)
       await loadHomeworks()
     } catch (err) {
-      setFormError(err?.response?.data?.error || err?.message || 'Could not create homework')
+      setFormError(getUiErrorMessage(err, t('homeworkManagement.createHomeworkFailed')))
     } finally {
       setSubmitBusy(false)
     }
@@ -427,16 +435,16 @@ export function HomeworkManagement() {
               className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-3"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to class
+              {t('homeworkManagement.backToClasses')}
             </Link>
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
                   <BookOpen className="w-8 h-8 text-primary" />
-                  Homework
+                  {t('homeworkManagement.title')}
                 </h1>
                 <p className="text-muted-foreground mt-1">
-                  Assign work and remind parents automatically before the deadline.
+                  {t('homeworkManagement.subtitle')}
                 </p>
               </div>
               {canManageHomework ? (
@@ -449,7 +457,7 @@ export function HomeworkManagement() {
                     setFormOpen((v) => !v)
                   }}
                 >
-                  <Plus className="w-4 h-4 mr-1" /> {formOpen ? 'Close form' : 'New homework'}
+                  <Plus className="w-4 h-4 mr-1" /> {formOpen ? t('homeworkManagement.closeForm') : t('homeworkManagement.newHomework')}
                 </button>
               ) : null}
             </div>
@@ -460,27 +468,27 @@ export function HomeworkManagement() {
               onSubmit={handleSubmit}
               className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm mb-8 space-y-4"
             >
-              <h2 className="font-semibold text-lg">Create homework</h2>
+              <h2 className="font-semibold text-lg">{t('homeworkManagement.createHomework')}</h2>
               <label className="field">
-                <span>Title</span>
+                <span>{t('homeworkManagement.formTitle')}</span>
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full"
-                  placeholder="e.g. Math worksheet chapter 3"
+                  placeholder={t('homeworkManagement.titlePlaceholder')}
                 />
               </label>
               <label className="field">
-                <span>Description</span>
+                <span>{t('homeworkManagement.description')}</span>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full min-h-[100px] rounded-xl border border-border p-3"
-                  placeholder="Instructions for students and parents…"
+                  placeholder={t('homeworkManagement.descriptionPlaceholder')}
                 />
               </label>
               <label className="field">
-                <span>Due date</span>
+                <span>{t('homeworkManagement.dueDate')}</span>
                 <input
                   type="datetime-local"
                   value={dueDate}
@@ -492,22 +500,22 @@ export function HomeworkManagement() {
 
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                  <span className="text-sm font-medium">Students</span>
+                  <span className="text-sm font-medium">{t('common.students')}</span>
                   <div className="flex gap-2">
                     <button type="button" className="text-xs text-primary hover:underline" onClick={selectAll}>
-                      Select all
+                      {t('homeworkManagement.selectAll')}
                     </button>
                     <button type="button" className="text-xs text-muted-foreground hover:underline" onClick={clearSelection}>
-                      Clear
+                      {t('homeworkManagement.clear')}
                     </button>
                   </div>
                 </div>
                 {studentsLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading students…</p>
+                  <p className="text-sm text-muted-foreground">{t('homeworkManagement.loadingStudents')}</p>
                 ) : studentsError ? (
                   <ErrorBanner message={studentsError} onRetry={loadStudents} />
                 ) : students.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No students in this class.</p>
+                  <p className="text-sm text-muted-foreground">{t('homeworkManagement.noStudentsInClass')}</p>
                 ) : (
                   <ul className="max-h-48 overflow-auto rounded-xl border border-border divide-y divide-border">
                     {students.map((s) => {
@@ -533,19 +541,19 @@ export function HomeworkManagement() {
               {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
 
               <button type="submit" className="btn btn-primary" disabled={submitBusy || studentsLoading}>
-                {submitBusy ? 'Saving…' : 'Create homework'}
+                {submitBusy ? t('homeworkManagement.saving') : t('homeworkManagement.createHomework')}
               </button>
             </form>
           ) : null}
 
           <div className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm">
-            <h2 className="font-semibold text-lg mb-4">Assignments</h2>
+            <h2 className="font-semibold text-lg mb-4">{t('homeworkManagement.assignments')}</h2>
             {listLoading ? (
-              <LoadingState label="Loading homework…" />
+              <LoadingState label={t('homeworkManagement.loadingHomework')} />
             ) : listError ? (
               <ErrorBanner message={listError} onRetry={loadHomeworks} />
             ) : homeworks.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No homework yet.</p>
+              <p className="text-sm text-muted-foreground">{t('homeworkManagement.noHomeworkYet')}</p>
             ) : (
               <ul className="space-y-3">
                 {homeworks.map((h) => {
@@ -564,7 +572,7 @@ export function HomeworkManagement() {
                       <div className="min-w-0">
                         <div className="font-medium">{h.title}</div>
                         <div className="text-sm text-muted-foreground mt-0.5">
-                          Due {formatDue(h.dueDate)}
+                          {t('homeworkManagement.due')} {formatDue(h.dueDate)}
                         </div>
                         {h.studentIds?.length ? (
                           <div className="text-xs text-muted-foreground mt-1">
@@ -584,7 +592,7 @@ export function HomeworkManagement() {
                             onClick={() => openGradeModal(h)}
                             className="text-xs px-3 py-1 rounded-lg border border-border hover:bg-accent"
                           >
-                            {h?.isGraded ? 'Edit grade' : 'Grade'}
+                            {h?.isGraded ? t('homeworkManagement.editGrade') : t('homeworkManagement.grade')}
                           </button>
                         ) : null}
                       </div>
@@ -597,7 +605,8 @@ export function HomeworkManagement() {
 
           <Modal
             open={gradeModalOpen}
-            title={`Homework grading${gradingHomework?.title ? `: ${gradingHomework.title}` : ''}`}
+            title={`${t('homeworkManagement.homeworkGrading')}${gradingHomework?.title ? `: ${gradingHomework.title}` : ''}`}
+            closeLabel={t('common.close')}
             onClose={() => {
               if (gradeBusy || componentConfirmOpen) return
               setGradeModalOpen(false)
@@ -626,13 +635,13 @@ export function HomeworkManagement() {
                   }
                   disabled={gradeBusy}
                 />
-                This homework is graded
+                {t('homeworkManagement.thisHomeworkIsGraded')}
               </label>
 
               {gradeForm.isGraded ? (
                 <>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Subject *</label>
+                    <label className="block text-sm font-medium mb-1">{t('homeworkManagement.subjectRequiredLabel')}</label>
                     <select
                       value={gradeForm.subjectId}
                       onChange={(e) =>
@@ -645,7 +654,7 @@ export function HomeworkManagement() {
                       disabled={subjectsLoading || gradeBusy}
                       className="w-full px-4 py-3 border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary"
                     >
-                      <option value="">Select subject…</option>
+                      <option value="">{t('homeworkManagement.selectSubject')}</option>
                       {subjects.map((s) => (
                         <option key={s._id} value={s._id}>
                           {s.name}
@@ -655,7 +664,7 @@ export function HomeworkManagement() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-1">Grade component *</label>
+                    <label className="block text-sm font-medium mb-1">{t('homeworkManagement.gradeComponentRequiredLabel')}</label>
                     <select
                       value={gradeForm.gradeComponent}
                       onChange={(e) => trySetGradeComponent(e.target.value)}
@@ -667,7 +676,7 @@ export function HomeworkManagement() {
                       }
                       className="w-full px-4 py-3 border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary"
                     >
-                      <option value="">Select component…</option>
+                      <option value="">{t('homeworkManagement.selectComponent')}</option>
                       {componentsForActiveSubject.map((c) => (
                         <option key={c.name} value={c.name}>
                           {c.name}
@@ -677,7 +686,7 @@ export function HomeworkManagement() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-1">Max score *</label>
+                    <label className="block text-sm font-medium mb-1">{t('homeworkManagement.maxScoreRequiredLabel')}</label>
                     <input
                       type="number"
                       min="0"
@@ -691,12 +700,12 @@ export function HomeworkManagement() {
                       }
                       disabled={gradeBusy}
                       className="w-full px-4 py-3 border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="e.g. 100"
+                      placeholder={t('homeworkManagement.maxScorePlaceholder')}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <div className="text-sm font-medium">Scores</div>
+                    <div className="text-sm font-medium">{t('homeworkManagement.scores')}</div>
                     {(gradingHomework?.studentIds ?? []).map((s) => {
                       const sid = String(s._id ?? s)
                       return (
@@ -715,7 +724,7 @@ export function HomeworkManagement() {
                             }
                             disabled={gradeBusy}
                             className="w-32 px-3 py-2 border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary text-right"
-                            placeholder="Score"
+                            placeholder={t('homeworkManagement.score')}
                           />
                         </div>
                       )
@@ -724,7 +733,7 @@ export function HomeworkManagement() {
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Marking as not graded will remove connected HOMEWORK grade records.
+                  {t('homeworkManagement.notGradedHelp')}
                 </p>
               )}
 
@@ -740,14 +749,14 @@ export function HomeworkManagement() {
                   className="px-4 py-2 rounded-xl border border-border hover:bg-accent text-sm"
                   disabled={gradeBusy}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={gradeBusy || (gradeForm.isGraded && subjectsLoading)}
                   className="btn btn-primary disabled:opacity-60"
                 >
-                  {gradeBusy ? 'Saving…' : gradeForm.isGraded ? 'Save grading' : 'Remove grades'}
+                  {gradeBusy ? t('homeworkManagement.saving') : gradeForm.isGraded ? t('homeworkManagement.saveGrading') : t('homeworkManagement.removeGrades')}
                 </button>
               </div>
             </form>
@@ -755,12 +764,12 @@ export function HomeworkManagement() {
 
           <Modal
             open={componentConfirmOpen}
-            title="Grade component in use"
+            title={t('homeworkManagement.gradeComponentInUse')}
+            closeLabel={t('common.close')}
             onClose={cancelGradeComponentChange}
           >
             <p className="text-sm text-foreground leading-relaxed">
-              This grade component is already in use or has existing grades in the gradebook.
-              Editing it may affect existing data. Do you want to continue?
+              {t('homeworkManagement.gradeComponentInUseDescription')}
             </p>
             <div className="flex justify-end gap-2 mt-6">
               <button
@@ -768,10 +777,10 @@ export function HomeworkManagement() {
                 onClick={cancelGradeComponentChange}
                 className="px-4 py-2 rounded-xl border border-border hover:bg-accent text-sm"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button type="button" onClick={confirmGradeComponentChange} className="btn btn-primary text-sm">
-                Continue
+                {t('homeworkManagement.continue')}
               </button>
             </div>
           </Modal>

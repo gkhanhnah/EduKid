@@ -1,7 +1,7 @@
 "use client";
 import { jsx } from "react/jsx-runtime";
 import * as ProgressPrimitive from "@radix-ui/react-progress";
-import { cn } from "./utils";
+import { cn } from "./utils.js";
 function Progress({
   className,
   value,

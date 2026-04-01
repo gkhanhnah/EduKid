@@ -2,7 +2,7 @@
 import { jsx, jsxs } from "react/jsx-runtime";
 import * as MenubarPrimitive from "@radix-ui/react-menubar";
 import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react";
-import { cn } from "./utils";
+import { cn } from "./utils.js";
 function Menubar({
   className,
   ...props

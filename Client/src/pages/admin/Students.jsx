@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Plus, Trash2, Upload, Download, Search, Edit } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { getClasses } from '../../services/classService.js'
 import {
   deleteAdminStudent,
@@ -9,6 +10,7 @@ import {
   importAdminStudentsXlsx,
 } from '../../services/adminStudents.service.js'
 import { exportStudentsXlsx } from '../../services/adminService.js'
+import { getUiErrorMessage } from '../../utils/errorMessages.js'
 
 const GENDERS = ['Male', 'Female', 'Other']
 const STATUSES = ['ACTIVE', 'SUSPENDED', 'GRADUATED']
@@ -32,6 +34,7 @@ function Modal({ open, title, children, onClose }) {
 }
 
 export default function AdminStudents() {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [students, setStudents] = useState([])
@@ -78,7 +81,7 @@ export default function AdminStudents() {
       const data = await getAdminStudents(params)
       setStudents(Array.isArray(data) ? data : [])
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Failed to load students')
+      setError(getUiErrorMessage(e, 'errors.genericLoad'))
       setStudents([])
     } finally {
       setLoading(false)
@@ -126,8 +129,8 @@ export default function AdminStudents() {
 
   async function handleSave() {
     setFormError('')
-    if (!form.name.trim()) return setFormError('Name is required')
-    if (!form.classId) return setFormError('Class is required')
+    if (!form.name.trim()) return setFormError(t('errors.nameRequired'))
+    if (!form.classId) return setFormError(t('adminStudents.classRequired'))
 
     const payload = {
       name: form.name.trim(),
@@ -148,35 +151,38 @@ export default function AdminStudents() {
       setModalOpen(false)
       await loadStudents()
     } catch (e) {
-      setFormError(e?.response?.data?.error || e?.message || 'Save failed')
+      setFormError(getUiErrorMessage(e, 'errors.saveFailed'))
     } finally {
       setSaving(false)
     }
   }
 
   async function handleDelete(studentId) {
-    if (!confirm('Delete this student?')) return
+    if (!confirm(t('common.delete') + ' this student?')) return
     try {
       await deleteAdminStudent(studentId)
       await loadStudents()
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Delete failed')
+      setError(getUiErrorMessage(e, 'errors.genericDelete'))
     }
   }
 
   async function handleImport() {
     setImportError('')
-    if (!importFile) return setImportError('Choose a file first')
+    if (!importFile) return setImportError(t('adminStudents.chooseFileFirst'))
     setImportBusy(true)
     try {
       const res = await importAdminStudentsXlsx(importFile, classFilter || undefined)
       await loadStudents()
       setImportFile(null)
       alert(
-        `Import done. Created: ${res?.createdCount ?? 0}. Errors: ${res?.errorsCount ?? 0}.`,
+        t('adminStudents.importDone', {
+          createdCount: res?.createdCount ?? 0,
+          errorsCount: res?.errorsCount ?? 0,
+        }),
       )
     } catch (e) {
-      setImportError(e?.response?.data?.error || e?.message || 'Import failed')
+      setImportError(getUiErrorMessage(e, 'errors.somethingWentWrong'))
     } finally {
       setImportBusy(false)
     }
@@ -194,7 +200,7 @@ export default function AdminStudents() {
       a.remove()
       URL.revokeObjectURL(url)
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Export failed')
+      setError(getUiErrorMessage(e, 'errors.somethingWentWrong'))
     }
   }
 
@@ -202,18 +208,18 @@ export default function AdminStudents() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Student Management</h1>
-          <p className="text-muted-foreground mt-1">CRUD + bulk import/export + student status.</p>
+          <h1 className="text-2xl md:text-3xl font-bold">{t('common.students')}</h1>
+          <p className="text-muted-foreground mt-1">{t('adminStudents.subtitle')}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={handleExport} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border hover:bg-accent bg-white">
             <Download className="w-4 h-4" />
-            Export
+            {t('common.export')}
           </button>
           <button type="button" onClick={openCreate} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90">
             <Plus className="w-4 h-4" />
-            Add Student
+            {t('common.addStudent')}
           </button>
         </div>
       </div>
@@ -228,7 +234,7 @@ export default function AdminStudents() {
               type="search"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by name…"
+              placeholder={t('adminStudents.searchByName')}
               className="w-full rounded-2xl border border-border bg-background pl-12 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
@@ -239,7 +245,7 @@ export default function AdminStudents() {
             disabled={classesLoading}
             className="w-full sm:w-64 rounded-2xl border border-border bg-background px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
           >
-            <option value="">All classes</option>
+            <option value="">{t('adminStudents.allClasses')}</option>
             {classes.map((c) => (
               <option key={c._id} value={c._id}>
                 {c.name}
@@ -251,7 +257,7 @@ export default function AdminStudents() {
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-white cursor-pointer hover:bg-accent">
             <Upload className="w-4 h-4" />
-            <span className="text-sm">{importBusy ? 'Importing…' : 'Bulk import'}</span>
+            <span className="text-sm">{importBusy ? `${t('common.import')}…` : t('common.bulkImport')}</span>
             <input
               type="file"
               accept=".csv,.xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
@@ -267,7 +273,7 @@ export default function AdminStudents() {
             disabled={importBusy}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
           >
-            Import
+            {t('common.import')}
           </button>
 
           {importError ? <div className="text-sm text-destructive">{importError}</div> : null}
@@ -277,25 +283,25 @@ export default function AdminStudents() {
           <table className="w-full text-sm border-collapse min-w-[780px]">
             <thead>
               <tr className="bg-muted/40 border-b border-border">
-                <th className="text-left px-3 py-2 font-semibold">Student</th>
-                <th className="text-left px-3 py-2 font-semibold">Class</th>
-                <th className="text-left px-3 py-2 font-semibold">Age</th>
-                <th className="text-left px-3 py-2 font-semibold">Gender</th>
-                <th className="text-left px-3 py-2 font-semibold">Status</th>
-                <th className="text-right px-3 py-2 font-semibold">Actions</th>
+                <th className="text-left px-3 py-2 font-semibold">{t('common.student')}</th>
+                <th className="text-left px-3 py-2 font-semibold">{t('adminStudents.class')}</th>
+                <th className="text-left px-3 py-2 font-semibold">{t('adminStudents.age')}</th>
+                <th className="text-left px-3 py-2 font-semibold">{t('adminStudents.gender')}</th>
+                <th className="text-left px-3 py-2 font-semibold">{t('adminStudents.status')}</th>
+                <th className="text-right px-3 py-2 font-semibold">{t('adminStudents.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
-                    Loading…
+                    {t('common.loading')}
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
-                    No students found.
+                    {t('adminStudents.noStudentsFound')}
                   </td>
                 </tr>
               ) : (
@@ -318,13 +324,13 @@ export default function AdminStudents() {
                           </div>
                           <div>
                             <div className="font-medium">{s.name}</div>
-                            <div className="text-xs text-muted-foreground">#{sid?.slice?.(-6) ?? ''}</div>
+                        <div className="text-xs text-muted-foreground">#{sid?.slice?.(-6) ?? ''}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-3 text-muted-foreground">{className || '—'}</td>
-                      <td className="px-3 py-3">{s.age ?? '—'}</td>
-                      <td className="px-3 py-3">{s.gender ?? '—'}</td>
+                      <td className="px-3 py-3 text-muted-foreground">{className || t('common.none')}</td>
+                      <td className="px-3 py-3">{s.age ?? t('common.none')}</td>
+                      <td className="px-3 py-3">{s.gender ?? t('common.none')}</td>
                       <td className="px-3 py-3">
                         <span className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-medium ${statusTone}`}>
                           {status}
@@ -336,7 +342,7 @@ export default function AdminStudents() {
                             type="button"
                             onClick={() => openEdit(s)}
                             className="p-2 rounded-xl border border-border hover:bg-accent"
-                            aria-label="Edit student"
+                            aria-label={t('adminStudents.editStudent')}
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -344,7 +350,7 @@ export default function AdminStudents() {
                             type="button"
                             onClick={() => handleDelete(sid)}
                             className="p-2 rounded-xl border border-border hover:bg-accent text-destructive"
-                            aria-label="Delete student"
+                            aria-label={t('adminStudents.deleteStudent')}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -361,7 +367,7 @@ export default function AdminStudents() {
 
       <Modal
         open={modalOpen}
-        title={mode === 'create' ? 'Add student' : 'Edit student'}
+        title={mode === 'create' ? t('common.addStudent') : t('adminStudents.editStudentTitle')}
         onClose={() => {
           if (saving) return
           setModalOpen(false)
@@ -372,18 +378,18 @@ export default function AdminStudents() {
           {formError ? <div className="text-sm text-destructive">{formError}</div> : null}
 
           <label className="block">
-            <span className="text-sm font-medium">Name</span>
+            <span className="text-sm font-medium">{t('adminStudents.name')}</span>
             <input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} className="w-full mt-1 rounded-2xl border border-border px-4 py-3" />
           </label>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label className="block">
-              <span className="text-sm font-medium">Age</span>
+              <span className="text-sm font-medium">{t('adminStudents.age')}</span>
               <input type="number" min={1} max={18} value={form.age} onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))} className="w-full mt-1 rounded-2xl border border-border px-4 py-3" />
             </label>
 
             <label className="block">
-              <span className="text-sm font-medium">Gender</span>
+              <span className="text-sm font-medium">{t('adminStudents.gender')}</span>
               <select value={form.gender} onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value }))} className="w-full mt-1 rounded-2xl border border-border px-4 py-3 bg-background">
                 {GENDERS.map((g) => (
                   <option key={g} value={g}>
@@ -396,7 +402,7 @@ export default function AdminStudents() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label className="block">
-              <span className="text-sm font-medium">Status</span>
+              <span className="text-sm font-medium">{t('adminStudents.status')}</span>
               <select value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))} className="w-full mt-1 rounded-2xl border border-border px-4 py-3 bg-background">
                 {STATUSES.map((st) => (
                   <option key={st} value={st}>
@@ -407,13 +413,13 @@ export default function AdminStudents() {
             </label>
 
             <label className="block">
-              <span className="text-sm font-medium">Class</span>
+              <span className="text-sm font-medium">{t('adminStudents.class')}</span>
               <select
                 value={form.classId}
                 onChange={(e) => setForm((p) => ({ ...p, classId: e.target.value }))}
                 className="w-full mt-1 rounded-2xl border border-border px-4 py-3 bg-background"
               >
-                <option value="">Select a class…</option>
+                <option value="">{t('adminStudents.selectClass')}</option>
                 {classes.map((c) => (
                   <option key={c._id} value={c._id}>
                     {c.name}
@@ -424,11 +430,11 @@ export default function AdminStudents() {
           </div>
 
           <label className="block">
-            <span className="text-sm font-medium">Photo URL (optional)</span>
+            <span className="text-sm font-medium">{t('adminStudents.photoUrlOptional')}</span>
             <input
               value={form.photoUrl}
               onChange={(e) => setForm((p) => ({ ...p, photoUrl: e.target.value }))}
-              placeholder="https://…"
+              placeholder={t('adminStudents.photoUrlPlaceholder')}
               className="w-full mt-1 rounded-2xl border border-border px-4 py-3"
             />
           </label>
@@ -440,7 +446,7 @@ export default function AdminStudents() {
               disabled={saving}
               onClick={() => setModalOpen(false)}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="button"
@@ -448,7 +454,7 @@ export default function AdminStudents() {
               disabled={saving}
               className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-60"
             >
-              {saving ? 'Saving…' : mode === 'create' ? 'Create' : 'Save'}
+              {saving ? t('adminStudents.saving') : mode === 'create' ? t('common.create') : t('common.save')}
             </button>
           </div>
         </div>

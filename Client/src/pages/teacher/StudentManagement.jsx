@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useStudents } from '../hooks/useStudents.js'
-import { getClasses } from '../services/classService.js'
-import { Sidebar } from '../components/Sidebar.jsx'
+import { useTranslation } from 'react-i18next'
+import { useStudents } from '../../hooks/useStudents.js'
+import { getClasses } from '../../services/classService.js'
+import { Sidebar } from '../../components/Sidebar.jsx'
 import { Link2, Plus, Search, X } from 'lucide-react'
-import { createParentStudentLink } from '../services/parentService.js'
+import { createParentStudentLink } from '../../services/parentService.js'
 import { AnimatePresence, motion as m } from 'framer-motion'
 
 const GENDERS = ['Male', 'Female', 'Other']
@@ -25,6 +26,7 @@ function getStudentClassName(student) {
 }
 
 export function StudentManagement() {
+  const { t } = useTranslation()
   const [classFilter, setClassFilter] = useState('')
   const { students, loading, error, refresh, addStudent } = useStudents({
     classId: classFilter || undefined,
@@ -90,7 +92,7 @@ export function StudentManagement() {
     e.preventDefault()
     if (!linkStudent) return
     if (!linkEmail.trim()) {
-      setLinkError('Parent email is required.')
+      setLinkError(t('teacherStudentManagement.parentEmailRequired'))
       return
     }
     setLinkError('')
@@ -104,7 +106,7 @@ export function StudentManagement() {
       closeLinkModal()
     } catch (err) {
       setLinkError(
-        err?.response?.data?.error || err?.message || 'Could not create link.',
+        err?.response?.data?.error || err?.message || t('teacherStudentManagement.createLinkFailed'),
       )
     } finally {
       setLinkBusy(false)
@@ -119,11 +121,11 @@ export function StudentManagement() {
   async function handleSubmit(e) {
     e.preventDefault()
     if (!form.name.trim()) {
-      setFormError('Name is required.')
+      setFormError(t('teacherStudentManagement.nameRequired'))
       return
     }
     if (!form.classId) {
-      setFormError('Please select a class.')
+      setFormError(t('teacherStudentManagement.selectClass'))
       return
     }
     setFormError('')
@@ -138,7 +140,7 @@ export function StudentManagement() {
       closeModal()
     } catch (err) {
       setFormError(
-        err?.response?.data?.error || err?.message || 'Failed to add student.',
+        err?.response?.data?.error || err?.message || t('teacherStudentManagement.addStudentFailed'),
       )
     } finally {
       setSubmitting(false)
@@ -152,9 +154,9 @@ export function StudentManagement() {
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
           <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="mb-2">Student Management</h1>
+              <h1 className="mb-2">{t('teacherStudentManagement.title')}</h1>
               <p className="text-[1.125rem] text-muted-foreground">
-                Manage your Grade 1 classroom students
+                {t('teacherStudentManagement.subtitle')}
               </p>
             </div>
             <button
@@ -162,7 +164,7 @@ export function StudentManagement() {
               onClick={openModal}
             >
               <Plus className="w-5 h-5" />
-              Add Student
+              {t('common.addStudent')}
             </button>
           </div>
 
@@ -170,21 +172,21 @@ export function StudentManagement() {
             <div className="bg-white rounded-3xl p-6 shadow-lg border border-border">
               <div className="text-[2rem] mb-2">👥</div>
               <h3 className="text-[2rem] mb-1">{students.length}</h3>
-              <p className="text-[0.9375rem] text-muted-foreground">Students (current filter)</p>
+              <p className="text-[0.9375rem] text-muted-foreground">{t('teacherStudentManagement.studentsCurrentFilter')}</p>
             </div>
             <div className="bg-white rounded-3xl p-6 shadow-lg border border-border">
               <div className="text-[2rem] mb-2">👦</div>
               <h3 className="text-[2rem] mb-1 text-primary">
                 {students.filter((s) => s.gender === 'Male').length}
               </h3>
-              <p className="text-[0.9375rem] text-muted-foreground">Male</p>
+              <p className="text-[0.9375rem] text-muted-foreground">{t('teacherStudentManagement.male')}</p>
             </div>
             <div className="bg-white rounded-3xl p-6 shadow-lg border border-border">
               <div className="text-[2rem] mb-2">👧</div>
               <h3 className="text-[2rem] mb-1 text-secondary">
                 {students.filter((s) => s.gender === 'Female').length}
               </h3>
-              <p className="text-[0.9375rem] text-muted-foreground">Female</p>
+              <p className="text-[0.9375rem] text-muted-foreground">{t('teacherStudentManagement.female')}</p>
             </div>
           </div>
 
@@ -193,7 +195,7 @@ export function StudentManagement() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search students..."
+                placeholder={t('teacherStudentManagement.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 bg-white border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary"
@@ -201,7 +203,7 @@ export function StudentManagement() {
             </div>
             <div className="sm:w-64">
               <label htmlFor="class-filter" className="sr-only">
-                Filter by class
+                {t('teacherStudentManagement.filterByClass')}
               </label>
               <select
                 id="class-filter"
@@ -210,7 +212,7 @@ export function StudentManagement() {
                 disabled={classesLoading}
                 className="w-full px-4 py-4 bg-white border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="">All classes</option>
+                <option value="">{t('teacherStudentManagement.allClasses')}</option>
                 {classes.map((c) => (
                   <option key={c._id} value={c._id}>
                     {c.name}
@@ -224,18 +226,18 @@ export function StudentManagement() {
             <div className="mb-6 p-4 bg-destructive/10 text-destructive rounded-2xl flex items-center justify-between">
               <span>{error}</span>
               <button onClick={refresh} className="text-sm underline">
-                Retry
+                {t('common.tryAgain')}
               </button>
             </div>
           )}
 
           {loading ? (
-            <div className="text-center py-16 text-muted-foreground">Loading students…</div>
+            <div className="text-center py-16 text-muted-foreground">{t('teacherStudentManagement.loading')}</div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-16 text-muted-foreground">
               {searchTerm
-                ? 'No students match your search.'
-                : 'No students yet. Add a class under Class management, then add students here.'}
+                ? t('teacherStudentManagement.noStudentsMatchSearch')
+                : t('teacherStudentManagement.noStudentsYet')}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -272,7 +274,7 @@ export function StudentManagement() {
                     <div className="flex items-center gap-2 mt-2 flex-wrap justify-center">
                       {student.age && (
                         <span className="text-sm text-muted-foreground">
-                          Age {student.age}
+                          {t('teacherStudentManagement.age', { age: student.age })}
                         </span>
                       )}
                       {student.gender && (
@@ -290,7 +292,7 @@ export function StudentManagement() {
                       )}
                     </div>
                     <span className="mt-3 text-xs text-primary font-medium">
-                      View profile →
+                      {t('teacherStudentManagement.viewProfile')}
                     </span>
                   </Link>
                   <button
@@ -299,7 +301,7 @@ export function StudentManagement() {
                     className="mt-2 inline-flex items-center justify-center gap-1.5 text-sm text-primary font-medium hover:underline"
                   >
                     <Link2 className="w-4 h-4" />
-                    Link parent
+                    {t('teacherStudentManagement.linkParent')}
                   </button>
                 </m.div>
               ))}
@@ -326,7 +328,7 @@ export function StudentManagement() {
               className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold">Add New Student</h2>
+                <h2 className="text-xl font-semibold">{t('teacherStudentManagement.addNewStudent')}</h2>
                 <button
                   type="button"
                   onClick={closeModal}
@@ -345,19 +347,19 @@ export function StudentManagement() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Name <span className="text-destructive">*</span>
+                    {t('teacherStudentManagement.nameLabel')} <span className="text-destructive">*</span>
                   </label>
                   <input
                     name="name"
                     value={form.name}
                     onChange={handleChange}
-                    placeholder="Student name"
+                    placeholder={t('teacherStudentManagement.studentNamePlaceholder')}
                     className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
                     autoFocus
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Age</label>
+                  <label className="block text-sm font-medium mb-1">{t('teacherStudentManagement.ageLabel')}</label>
                   <input
                     name="age"
                     type="number"
@@ -365,12 +367,12 @@ export function StudentManagement() {
                     max="18"
                     value={form.age}
                     onChange={handleChange}
-                    placeholder="e.g. 6"
+                    placeholder={t('teacherStudentManagement.agePlaceholder')}
                     className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Gender</label>
+                  <label className="block text-sm font-medium mb-1">{t('teacherStudentManagement.genderLabel')}</label>
                   <select
                     name="gender"
                     value={form.gender}
@@ -379,14 +381,14 @@ export function StudentManagement() {
                   >
                     {GENDERS.map((g) => (
                       <option key={g} value={g}>
-                        {g}
+                        {t(`teacherStudentManagement.genders.${g.toLowerCase()}`)}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Class <span className="text-destructive">*</span>
+                    {t('teacherStudentManagement.classLabel')} <span className="text-destructive">*</span>
                   </label>
                   <select
                     name="classId"
@@ -395,7 +397,7 @@ export function StudentManagement() {
                     className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                     disabled={classesLoading || classes.length === 0}
                   >
-                    <option value="">Select a class…</option>
+                    <option value="">{t('teacherStudentManagement.selectClassOption')}</option>
                     {classes.map((c) => (
                       <option key={c._id} value={c._id}>
                         {c.name}
@@ -404,7 +406,7 @@ export function StudentManagement() {
                   </select>
                   {!classesLoading && classes.length === 0 ? (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Create a class under Class management first.
+                      {t('teacherStudentManagement.createClassFirst')}
                     </p>
                   ) : null}
                 </div>
@@ -414,14 +416,14 @@ export function StudentManagement() {
                     onClick={closeModal}
                     className="flex-1 px-4 py-3 border border-border rounded-xl hover:bg-gray-50 transition-colors"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
                     className="flex-1 bg-primary text-white px-4 py-3 rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-60"
                   >
-                    {submitting ? 'Saving…' : 'Add Student'}
+                    {submitting ? t('teacherStudentManagement.saving') : t('common.addStudent')}
                   </button>
                 </div>
               </form>
@@ -448,7 +450,7 @@ export function StudentManagement() {
               className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md"
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">Link parent</h2>
+                <h2 className="text-xl font-semibold">{t('teacherStudentManagement.linkParent')}</h2>
                 <button
                   type="button"
                   onClick={closeLinkModal}
@@ -458,8 +460,7 @@ export function StudentManagement() {
                 </button>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                Connect <span className="font-medium text-foreground">{linkStudent.name}</span> to a
-                parent account by email (must match their registered email).
+                {t('teacherStudentManagement.linkParentHelp', { name: linkStudent.name })}
               </p>
               {linkError ? (
                 <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-xl text-sm">
@@ -468,23 +469,23 @@ export function StudentManagement() {
               ) : null}
               <form onSubmit={handleLinkSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Parent email *</label>
+                  <label className="block text-sm font-medium mb-1">{t('teacherStudentManagement.parentEmailLabel')}</label>
                   <input
                     type="email"
                     value={linkEmail}
                     onChange={(e) => setLinkEmail(e.target.value)}
                     className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="parent@example.com"
+                    placeholder={t('teacherStudentManagement.parentEmailPlaceholder')}
                     autoFocus
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Relationship (optional)</label>
+                  <label className="block text-sm font-medium mb-1">{t('teacherStudentManagement.relationshipLabel')}</label>
                   <input
                     value={linkRelationship}
                     onChange={(e) => setLinkRelationship(e.target.value)}
                     className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="e.g. Mother, Guardian"
+                    placeholder={t('teacherStudentManagement.relationshipPlaceholder')}
                   />
                 </div>
                 <div className="flex gap-3 pt-2">
@@ -493,14 +494,14 @@ export function StudentManagement() {
                     onClick={closeLinkModal}
                     className="flex-1 px-4 py-3 border border-border rounded-xl hover:bg-gray-50"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={linkBusy}
                     className="flex-1 bg-primary text-white px-4 py-3 rounded-xl disabled:opacity-60"
                   >
-                    {linkBusy ? 'Linking…' : 'Link parent'}
+                    {linkBusy ? t('teacherStudentManagement.linking') : t('teacherStudentManagement.linkParent')}
                   </button>
                 </div>
               </form>

@@ -15,20 +15,23 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth.js'
 import { studentIdFromLink, useParentChild } from '../context/ParentChildContext.jsx'
+import { useTranslation } from 'react-i18next'
+import LanguageSwitcher from './LanguageSwitcher.jsx'
 export function Sidebar() {
   const location = useLocation()
   const { logout, user } = useAuth()
+  const { t } = useTranslation()
 
   const teacherNavItems = [
-    { path: '/teacher', icon: LayoutDashboard, label: 'Dashboard' },
-    { path: '/classes', icon: School, label: 'Classes' },
-    { path: '/students', icon: Users, label: 'Students' },
-    { path: '/documents', icon: FolderOpen, label: 'Documents' },
-    { path: '/evaluations', icon: ClipboardCheck, label: 'Evaluations' },
-    { path: '/behavior', icon: Activity, label: 'Behavior', isActive: (p) => p === '/behavior' || p.startsWith('/behavior') },
-    { path: '/games', icon: Gamepad2, label: 'Games' },
-    { path: '/ai-lesson', icon: Sparkles, label: 'AI Lesson Generator' },
-    { path: '/messages', icon: MessageCircle, label: 'Messages' },
+    { path: '/teacher', icon: LayoutDashboard, label: t('nav.dashboard') },
+    { path: '/classes', icon: School, label: t('nav.classes') },
+    { path: '/students', icon: Users, label: t('nav.students') },
+    { path: '/documents', icon: FolderOpen, label: t('nav.documents') },
+    { path: '/evaluations', icon: ClipboardCheck, label: t('nav.evaluations') },
+    { path: '/behavior', icon: Activity, label: t('nav.behavior'), isActive: (p) => p === '/behavior' || p.startsWith('/behavior') },
+    { path: '/games', icon: Gamepad2, label: t('nav.games') },
+    { path: '/ai-lesson', icon: Sparkles, label: t('nav.aiLesson') },
+    { path: '/messages', icon: MessageCircle, label: t('nav.messages') },
 
   ]
 
@@ -36,26 +39,26 @@ export function Sidebar() {
     {
       path: '/parent-dashboard',
       icon: LayoutDashboard,
-      label: 'My children',
+      label: t('nav.myChildren'),
       isActive: (pathname) =>
         pathname === '/parent-dashboard' || pathname === '/parent',
     },
     {
       path: '/parent-dashboard/homework',
       icon: BookOpen,
-      label: 'Homework',
+      label: t('nav.homework'),
       isActive: (pathname) => pathname.startsWith('/parent-dashboard/homework'),
     },
     {
       path: '/parent-dashboard/messages',
       icon: MessageCircle,
-      label: 'Messages',
+      label: t('nav.messages'),
       isActive: (pathname) => pathname.startsWith('/parent-dashboard/messages'),
     },
     {
       path: '/parent-dashboard/attendance',
       icon: CalendarDays,
-      label: 'Attendance',
+      label: t('nav.attendance'),
       isActive: (pathname) => pathname.startsWith('/parent-dashboard/attendance'),
     },
   ]
@@ -67,8 +70,8 @@ export function Sidebar() {
     if (loading) {
       return (
         <div className="border-b border-border px-4 py-3">
-          <p className="text-xs text-muted-foreground">Children</p>
-          <p className="mt-1 text-sm text-muted-foreground">Loading…</p>
+          <p className="text-xs text-muted-foreground">{t('common.children')}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('common.loading')}</p>
         </div>
       )
     }
@@ -78,11 +81,11 @@ export function Sidebar() {
     }
   
     if (linkedChildren.length === 1) {
-      const name = linkedChildren[0].student?.name || 'Your child'
+      const name = linkedChildren[0].student?.name || t('common.yourChild')
       return (
         <div className="border-b border-border px-4 py-3">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Viewing
+          {t('common.viewing')}
           </p>
           <p className="mt-1 truncate text-sm font-semibold text-foreground">{name}</p>
         </div>
@@ -92,12 +95,12 @@ export function Sidebar() {
     return (
       <div className="border-b border-border px-4 py-3">
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Switch child
+          {t('common.switchChild')}
         </p>
         <div className="flex max-h-40 flex-col gap-1 overflow-y-auto pr-1">
           {linkedChildren.map((item) => {
             const sid = studentIdFromLink(item)
-            const name = item.student?.name || 'Child'
+            const name = item.student?.name || t('common.child')
             const active = sid === selectedStudentId
             return (
               <button
@@ -125,11 +128,14 @@ export function Sidebar() {
       <div className="border-b border-border p-6 shrink-0">
         <h2 className="flex items-center gap-2">
           <span className="text-[2rem]">🎒</span>
-          <span className="text-primary font-bold">ClassRoom</span>
+          <span className="text-primary font-bold">{t('common.appName')}</span>
         </h2>
         <p className="mt-1 text-[0.875rem] text-muted-foreground">
-          {user?.role === 'parent' ? 'Parent' : 'Grade 1 Management'}
+          {user?.role === 'parent' ? t('common.parent') : 'Grade 1 Management'}
         </p>
+        <div className="mt-4">
+          <LanguageSwitcher />
+        </div>
       </div>
 
       {user?.role === 'parent' ? (
@@ -168,7 +174,7 @@ export function Sidebar() {
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-destructive transition-all hover:bg-destructive/10"
         >
           <LogOut className="h-5 w-5" />
-          <span className="text-[0.9375rem]">Logout</span>
+          <span className="text-[0.9375rem]">{t('common.logout')}</span>
         </button>
       </div>
     </aside>

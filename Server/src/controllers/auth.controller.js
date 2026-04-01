@@ -18,13 +18,13 @@ export async function register(req, res) {
     const { name, email, password, role } = req.body
 
     if (!name?.trim() || !email?.trim() || password == null || password === '') {
-      return res.status(400).json({ error: 'Name, email, and password are required' })
+      return res.status(400).json({ code: 'AUTH_REQUIRED_FIELDS', error: 'Name, email, and password are required' })
     }
     if (typeof password !== 'string' || password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' })
+      return res.status(400).json({ code: 'AUTH_PASSWORD_MIN', error: 'Password must be at least 6 characters' })
     }
     if (!['teacher', 'student', 'parent', 'admin'].includes(role)) {
-      return res.status(400).json({ error: 'role must be teacher, student, parent, or admin' })
+      return res.status(400).json({ code: 'AUTH_INVALID_ROLE', error: 'role must be teacher, student, parent, or admin' })
     }
 
     const hashed = await bcrypt.hash(password, SALT_ROUNDS)
@@ -39,15 +39,15 @@ export async function register(req, res) {
     res.status(201).json({ user: user.toJSON(), token })
   } catch (err) {
     if (err.code === 11000) {
-      return res.status(400).json({ error: 'Email already registered' })
+      return res.status(400).json({ code: 'AUTH_EMAIL_EXISTS', error: 'Email already registered' })
     }
     if (err.name === 'ValidationError') {
-      return res.status(400).json({ error: err.message })
+      return res.status(400).json({ code: 'AUTH_VALIDATION_ERROR', error: err.message })
     }
     if (err.message === 'JWT_SECRET is not set') {
-      return res.status(500).json({ error: 'Server configuration error' })
+      return res.status(500).json({ code: 'SERVER_CONFIG_ERROR', error: 'Server configuration error' })
     }
-    return res.status(500).json({ error: 'Server error' })
+    return res.status(500).json({ code: 'SERVER_ERROR', error: 'Server error' })
   }
 }
 
@@ -55,22 +55,22 @@ export async function login(req, res) {
   try {
     const { email, password } = req.body
     if (!email?.trim() || password == null || password === '') {
-      return res.status(400).json({ error: 'Email and password are required' })
+      return res.status(400).json({ code: 'AUTH_EMAIL_PASSWORD_REQUIRED', error: 'Email and password are required' })
     }
 
     const user = await User.findOne({ email: email.trim().toLowerCase() }).select(
       '+password',
     )
     if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ error: 'Invalid email or password' })
+      return res.status(401).json({ code: 'AUTH_INVALID_CREDENTIALS', error: 'Invalid email or password' })
     }
 
     const token = signToken(user._id.toString(), user.role)
     res.json({ user: user.toJSON(), token })
   } catch (err) {
     if (err.message === 'JWT_SECRET is not set') {
-      return res.status(500).json({ error: 'Server configuration error' })
+      return res.status(500).json({ code: 'SERVER_CONFIG_ERROR', error: 'Server configuration error' })
     }
-    return res.status(500).json({ error: 'Server error' })
+    return res.status(500).json({ code: 'SERVER_ERROR', error: 'Server error' })
   }
 }

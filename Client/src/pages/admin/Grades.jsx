@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Lock, Unlock, ThumbsUp, ThumbsDown, ClipboardCheck, Search } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { getClasses } from '../../services/classService.js'
 import {
   getClassGrades,
@@ -17,6 +18,7 @@ function emptyAudit() {
 }
 
 export default function AdminGrades() {
+  const { t } = useTranslation()
   const [classes, setClasses] = useState([])
   const [classesLoading, setClassesLoading] = useState(true)
 
@@ -111,7 +113,7 @@ export default function AdminGrades() {
       } else if (action === 'approve') {
         await approveGradesForSubject({ classId, subjectId })
       } else if (action === 'reject') {
-        const reason = prompt('Rejection reason (required for best UX):') || ''
+        const reason = prompt(t('adminGrades.rejectionReasonPrompt')) || ''
         await rejectGradesForSubject({ classId, subjectId, rejectionReason: reason })
       } else if (action === 'lock') {
         await lockGradesForSubject({ classId, subjectId })
@@ -121,7 +123,7 @@ export default function AdminGrades() {
       await reloadClassGrades()
       await loadAudit()
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Workflow action failed')
+      setError(e?.response?.data?.error || e?.message || t('adminGrades.workflowFailed'))
     }
   }
 
@@ -129,15 +131,15 @@ export default function AdminGrades() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Grade System</h1>
-          <p className="text-muted-foreground mt-1">View gradebook + submit/approve/reject with audit trail.</p>
+          <h1 className="text-2xl md:text-3xl font-bold">{t('adminGrades.title')}</h1>
+          <p className="text-muted-foreground mt-1">{t('adminGrades.subtitle')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
             to="/admin/classes"
             className="inline-flex items-center justify-center rounded-xl border border-border px-3 py-2 text-sm hover:bg-accent bg-background"
           >
-            Manage classes
+            {t('adminGrades.manageClasses')}
           </Link>
         </div>
       </div>
@@ -147,14 +149,14 @@ export default function AdminGrades() {
       <div className="bg-white rounded-3xl border border-border p-5 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <label className="flex-1">
-            <span className="text-sm font-medium">Class</span>
+            <span className="text-sm font-medium">{t('common.classes')}</span>
             <select
               value={classId}
               disabled={classesLoading}
               onChange={(e) => setClassId(e.target.value)}
               className="w-full mt-1 rounded-2xl border border-border px-4 py-3 bg-background"
             >
-              <option value="">{classesLoading ? 'Loading…' : 'Select a class…'}</option>
+              <option value="">{classesLoading ? t('common.loading') : t('adminGrades.selectClass')}</option>
               {classes.map((c) => (
                 <option key={c._id} value={c._id}>
                   {c.name}
@@ -164,7 +166,7 @@ export default function AdminGrades() {
           </label>
 
           <label className="flex-1">
-            <span className="text-sm font-medium">Subject</span>
+            <span className="text-sm font-medium">{t('adminReports.subject')}</span>
             <select
               value={subjectId}
               disabled={dataLoading || !classData}
@@ -181,18 +183,18 @@ export default function AdminGrades() {
         </div>
 
         {dataLoading ? (
-          <div className="py-10 text-center text-muted-foreground">Loading gradebook…</div>
+          <div className="py-10 text-center text-muted-foreground">{t('adminGrades.loadingGradebook')}</div>
         ) : !classData || !activeSubject ? (
           <div className="rounded-2xl border border-border bg-muted/10 p-6 text-sm text-muted-foreground">
-            Choose a class and subject to view the gradebook.
+            {t('adminGrades.chooseClassAndSubject')}
           </div>
         ) : (
           <>
             <div className="flex flex-col lg:flex-row lg:items-start gap-4 justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Workflow status</p>
+                <p className="text-sm text-muted-foreground">{t('adminGrades.workflowStatus')}</p>
                 <p className="mt-1 text-lg font-semibold">
-                  {workflowState?.approvalStatus ?? '—'} {workflowState?.locked ? '(Locked)' : '(Editable)'}
+                  {workflowState?.approvalStatus ?? t('common.none')} {workflowState?.locked ? t('adminGrades.locked') : t('adminGrades.editable')}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -202,7 +204,7 @@ export default function AdminGrades() {
                   onClick={() => handleWorkflow('submit')}
                 >
                   <ClipboardCheck className="w-4 h-4" />
-                  Submit
+                  {t('adminGrades.submit')}
                 </button>
                 <button
                   type="button"
@@ -211,7 +213,7 @@ export default function AdminGrades() {
                   disabled={workflowState?.approvalStatus === 'APPROVED'}
                 >
                   <ThumbsUp className="w-4 h-4" />
-                  Approve
+                  {t('adminGrades.approve')}
                 </button>
                 <button
                   type="button"
@@ -220,7 +222,7 @@ export default function AdminGrades() {
                   disabled={workflowState?.approvalStatus === 'REJECTED'}
                 >
                   <ThumbsDown className="w-4 h-4" />
-                  Reject
+                  {t('adminGrades.reject')}
                 </button>
                 <button
                   type="button"
@@ -228,7 +230,7 @@ export default function AdminGrades() {
                   onClick={() => handleWorkflow('lock')}
                 >
                   <Lock className="w-4 h-4" />
-                  Lock
+                  {t('adminGrades.lock')}
                 </button>
                 <button
                   type="button"
@@ -236,7 +238,7 @@ export default function AdminGrades() {
                   onClick={() => handleWorkflow('unlock')}
                 >
                   <Unlock className="w-4 h-4" />
-                  Unlock
+                  {t('adminGrades.unlock')}
                 </button>
               </div>
             </div>
@@ -246,7 +248,7 @@ export default function AdminGrades() {
                 <thead>
                   <tr className="bg-muted/40 border-b border-border">
                     <th className="sticky left-0 z-10 bg-muted/40 px-3 py-2 text-left font-semibold border-r border-border min-w-[180px]">
-                      Student
+                      {t('common.student')}
                     </th>
                     {componentColumns.map((c) => (
                       <th key={c.name} className="px-3 py-2 text-center font-semibold border-r border-border/40 last:border-r-0">
@@ -264,13 +266,13 @@ export default function AdminGrades() {
                     return (
                       <tr key={row.student?._id ?? row.student?.id} className="border-b border-border/60 last:border-b-0">
                         <th className="sticky left-0 z-5 bg-background px-3 py-3 text-left font-medium border-r border-border">
-                          {row.student?.name ?? '—'}
+                          {row.student?.name ?? t('common.none')}
                         </th>
                         {componentColumns.map((c) => {
                           const g = grades.find((x) => String(x.componentName) === String(c.name) && String(x.subject?._id ?? x.subject) === String(subjectId))
                           return (
                             <td key={c.name} className="px-3 py-3 text-center border-r border-border/40 last:border-r-0">
-                              {g?.score != null ? g.score : '—'}
+                              {g?.score != null ? g.score : t('common.none')}
                             </td>
                           )
                         })}
@@ -283,29 +285,29 @@ export default function AdminGrades() {
 
             <div className="grid lg:grid-cols-2 gap-6 pt-2">
               <div className="bg-white rounded-3xl border border-border p-5 shadow-sm">
-                <p className="font-semibold mb-3">Audit log</p>
+                <p className="font-semibold mb-3">{t('adminGrades.auditLog')}</p>
                 {auditLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading audit…</p>
+                  <p className="text-sm text-muted-foreground">{t('adminGrades.loadingAudit')}</p>
                 ) : audit?.rows?.length ? (
                   <ul className="space-y-2 max-h-80 overflow-auto pr-1">
                     {audit.rows.map((r, idx) => (
                       <li key={`${r._id ?? idx}-${idx}`} className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-3">
                         <div className="flex items-baseline justify-between gap-3">
                           <span className="font-medium">{r.action}</span>
-                          <span className="text-xs text-muted-foreground">{r.createdAt ? new Date(r.createdAt).toLocaleString() : '—'}</span>
+                          <span className="text-xs text-muted-foreground">{r.createdAt ? new Date(r.createdAt).toLocaleString() : t('common.none')}</span>
                         </div>
-                        {r.to?.approvalStatus ? <div className="text-sm text-primary mt-1">To: {r.to.approvalStatus}</div> : null}
+                        {r.to?.approvalStatus ? <div className="text-sm text-primary mt-1">{t('adminGrades.toStatus', { status: r.to.approvalStatus })}</div> : null}
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No audit logs yet.</p>
+                  <p className="text-sm text-muted-foreground">{t('adminGrades.noAuditLogs')}</p>
                 )}
               </div>
               <div className="bg-white rounded-3xl border border-border p-5 shadow-sm">
-                <p className="font-semibold mb-3">Tip</p>
+                <p className="font-semibold mb-3">{t('adminGrades.tip')}</p>
                 <p className="text-sm text-muted-foreground">
-                  Use Submit → Approve/Reject to lock the gradebook. When grades are locked, score/visibility edits are blocked.
+                  {t('adminGrades.tipText')}
                 </p>
               </div>
             </div>

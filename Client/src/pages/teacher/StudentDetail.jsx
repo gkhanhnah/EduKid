@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Sidebar } from '../components/Sidebar.jsx'
-import { getStudentById } from '../services/api.js'
+import { useTranslation } from 'react-i18next'
+import { Sidebar } from '../../components/Sidebar.jsx'
+import { getStudentById } from '../../services/api.js'
 import { ArrowLeft, Loader2, Mail, User } from 'lucide-react'
 
 function displayInitials(name) {
@@ -18,6 +19,7 @@ function genderEmoji(gender) {
 }
 
 export function StudentDetail() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
   const [student, setStudent] = useState(null)
@@ -33,7 +35,7 @@ export function StudentDetail() {
     } catch (e) {
       setStudent(null)
       setError(
-        e?.response?.data?.error || e?.message || 'Could not load student',
+        e?.response?.data?.error || e?.message || t('teacherStudentDetail.loadFailed'),
       )
     } finally {
       setLoading(false)
@@ -68,13 +70,13 @@ export function StudentDetail() {
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back
+            {t('teacherStudentDetail.back')}
           </button>
 
           {loading ? (
             <div className="flex items-center gap-2 text-muted-foreground py-12 justify-center">
               <Loader2 className="w-6 h-6 animate-spin" />
-              Loading…
+              {t('common.loading')}
             </div>
           ) : error ? (
             <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-destructive">
@@ -85,14 +87,14 @@ export function StudentDetail() {
                   className="underline text-sm"
                   onClick={() => navigate('/classes')}
                 >
-                  Class list
+                  {t('teacherStudentDetail.classList')}
                 </button>
                 <button
                   type="button"
                   className="underline text-sm"
                   onClick={() => navigate('/students')}
                 >
-                  Students
+                  {t('common.students')}
                 </button>
               </div>
             </div>
@@ -126,7 +128,7 @@ export function StudentDetail() {
                     <div className="mt-3 flex flex-wrap gap-2 justify-center sm:justify-start text-sm text-muted-foreground">
                       {student.age != null && student.age !== '' ? (
                         <span className="px-3 py-1 rounded-full bg-primary/10 text-primary">
-                          Age {student.age}
+                          {t('teacherStudentDetail.age', { age: student.age })}
                         </span>
                       ) : null}
                       {student.gender ? (
@@ -136,7 +138,7 @@ export function StudentDetail() {
                       ) : null}
                     </div>
                     <div className="mt-4 text-sm">
-                      <span className="text-muted-foreground">Class: </span>
+                      <span className="text-muted-foreground">{t('teacherStudentDetail.classLabel')} </span>
                       {classId && className ? (
                         <Link
                           to={`/classes/${classId}`}
@@ -148,7 +150,7 @@ export function StudentDetail() {
                           grade !== '' ? (
                             <span className="text-muted-foreground font-normal">
                               {' '}
-                              · Grade {grade}
+                              · {t('teacherStudentDetail.grade', { grade })}
                             </span>
                           ) : null}
                         </Link>
@@ -163,7 +165,7 @@ export function StudentDetail() {
               <div className="bg-white rounded-2xl border border-border shadow-sm p-6">
                 <h2 className="font-medium flex items-center gap-2 mb-4">
                   <User className="w-5 h-5 text-primary" />
-                  Parents ({student.parents?.length ?? 0})
+                  {t('teacherStudentDetail.parents', { count: student.parents?.length ?? 0 })}
                 </h2>
                 {student.parents?.length ? (
                   <ul className="space-y-3">
@@ -177,7 +179,7 @@ export function StudentDetail() {
                         </div>
                         <div className="min-w-0">
                           <p className="font-medium">
-                            {row.parent?.name ?? 'Parent'}
+                            {row.parent?.name ?? t('common.parent')}
                           </p>
                           {row.parent?.email ? (
                             <p className="text-sm text-muted-foreground break-all">
@@ -186,7 +188,7 @@ export function StudentDetail() {
                           ) : null}
                           {row.relationship ? (
                             <p className="text-xs text-muted-foreground mt-1">
-                              Relationship: {row.relationship}
+                              {t('teacherStudentDetail.relationship')}: {row.relationship}
                             </p>
                           ) : null}
                         </div>
@@ -195,8 +197,7 @@ export function StudentDetail() {
                   </ul>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    No parents linked yet. Use &quot;Add parent&quot; on the
-                    class page or Students list.
+                    {t('teacherStudentDetail.noParents')}
                   </p>
                 )}
               </div>

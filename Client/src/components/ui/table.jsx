@@ -1,6 +1,6 @@
 "use client";
 import { jsx } from "react/jsx-runtime";
-import { cn } from "./utils";
+import { cn } from "./utils.js";
 function Table({ className, ...props }) {
   return /* @__PURE__ */ jsx(
     "div",

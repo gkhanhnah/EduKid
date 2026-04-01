@@ -2,14 +2,14 @@
 import { jsx, jsxs } from "react/jsx-runtime";
 import { Command as CommandPrimitive } from "cmdk";
 import { SearchIcon } from "lucide-react";
-import { cn } from "./utils";
+import { cn } from "./utils.js";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle
-} from "./dialog";
+} from "./dialog.jsx";
 function Command({
   className,
   ...props

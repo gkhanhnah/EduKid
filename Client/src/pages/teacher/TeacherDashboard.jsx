@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import {
   Activity,
   BookOpen,
@@ -21,10 +22,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Sidebar } from '../components/Sidebar.jsx'
-import { useAuth } from '../hooks/useAuth.js'
-import { fetchTeacherDashboard } from '../services/dashboardService.js'
-import { homePathForRole } from '../utils/authPaths.js'
+import { Sidebar } from '../../components/Sidebar.jsx'
+import { useAuth } from '../../hooks/useAuth.js'
+import { fetchTeacherDashboard } from '../../services/dashboardService.js'
+import { homePathForRole } from '../../utils/authPaths.js'
+import { getUiErrorMessage } from '../../utils/errorMessages.js'
 
 const CHART_COLORS = {
   good: '#22c55e',
@@ -35,6 +37,7 @@ const CHART_COLORS = {
 
 export function TeacherDashboard() {
   const { user } = useAuth()
+  const { t } = useTranslation()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -46,7 +49,7 @@ export function TeacherDashboard() {
       const d = await fetchTeacherDashboard()
       setData(d)
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Could not load dashboard')
+      setError(getUiErrorMessage(e, 'teacherDashboard.loadFailed'))
       setData(null)
     } finally {
       setLoading(false)
@@ -61,21 +64,21 @@ export function TeacherDashboard() {
   const chartData =
     stats != null
       ? [
-          { name: 'Good', value: stats.GOOD ?? 0, fill: CHART_COLORS.good },
-          { name: 'Bad', value: stats.BAD ?? 0, fill: CHART_COLORS.bad },
-          { name: 'Active', value: stats.ACTIVE ?? stats.NOTE ?? 0, fill: CHART_COLORS.active },
-          { name: 'Sleepy', value: stats.SLEEPY ?? 0, fill: CHART_COLORS.sleepy },
+          { name: t('teacherDashboard.good'), value: stats.GOOD ?? 0, fill: CHART_COLORS.good },
+          { name: t('teacherDashboard.bad'), value: stats.BAD ?? 0, fill: CHART_COLORS.bad },
+          { name: t('teacherDashboard.active'), value: stats.ACTIVE ?? stats.NOTE ?? 0, fill: CHART_COLORS.active },
+          { name: t('teacherDashboard.sleepy'), value: stats.SLEEPY ?? 0, fill: CHART_COLORS.sleepy },
         ]
       : []
 
   const quickActions = [
-    { label: 'Students', icon: '👥', color: 'bg-primary', path: '/students' },
-    { label: 'Classes', icon: '🏫', color: 'bg-secondary', path: '/classes' },
-    { label: 'Behavior', icon: '👍', color: 'bg-[#F59E0B]', path: '/behavior' },
-    { label: 'Evaluations', icon: '📋', color: 'bg-[#8B5CF6]', path: '/evaluations' },
+    { label: t('nav.students'), icon: '👥', color: 'bg-primary', path: '/students' },
+    { label: t('nav.classes'), icon: '🏫', color: 'bg-secondary', path: '/classes' },
+    { label: t('nav.behavior'), icon: '👍', color: 'bg-[#F59E0B]', path: '/behavior' },
+    { label: t('nav.evaluations'), icon: '📋', color: 'bg-[#8B5CF6]', path: '/evaluations' },
   ]
 
-  const greetingName = user?.name?.split(' ')[0] || 'Teacher'
+  const greetingName = user?.name?.split(' ')[0] || t('common.teacher')
 
   if (user?.role && user.role !== 'teacher') {
     return <Navigate to={homePathForRole(user.role)} replace />
@@ -88,16 +91,16 @@ export function TeacherDashboard() {
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
           <div className="mb-8">
             <h1 className="text-2xl md:text-3xl font-bold mb-2">
-              Good morning, {greetingName}
+              {t('teacherDashboard.greeting', { name: greetingName })}
             </h1>
             <p className="text-muted-foreground text-[1.05rem]">
-              Overview of your classes, students, and recent behavior activity.
+              {t('teacherDashboard.subtitle')}
             </p>
           </div>
 
           {loading ? (
             <div className="rounded-3xl border border-border bg-white p-12 text-center text-muted-foreground shadow-lg">
-              Loading dashboard…
+              {t('teacherDashboard.loading')}
             </div>
           ) : error ? (
             <div className="rounded-3xl border border-destructive/30 bg-destructive/5 p-6 text-destructive flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -107,7 +110,7 @@ export function TeacherDashboard() {
                 onClick={load}
                 className="text-sm underline shrink-0"
               >
-                Try again
+                {t('common.tryAgain')}
               </button>
             </div>
           ) : (
@@ -126,7 +129,7 @@ export function TeacherDashboard() {
                   <p className="text-3xl font-bold tabular-nums">
                     {data?.totalStudents ?? 0}
                   </p>
-                  <p className="text-sm text-muted-foreground mt-1">Total students</p>
+                  <p className="text-sm text-muted-foreground mt-1">{t('teacherDashboard.totalStudents')}</p>
                 </motion.div>
                 <motion.div
                   initial={{ opacity: 0, y: 16 }}
@@ -142,7 +145,7 @@ export function TeacherDashboard() {
                   <p className="text-3xl font-bold tabular-nums">
                     {data?.totalClasses ?? 0}
                   </p>
-                  <p className="text-sm text-muted-foreground mt-1">Classes</p>
+                  <p className="text-sm text-muted-foreground mt-1">{t('teacherDashboard.classes')}</p>
                 </motion.div>
                 <motion.div
                   initial={{ opacity: 0, y: 16 }}
@@ -152,7 +155,7 @@ export function TeacherDashboard() {
                 >
                   <div className="flex items-center gap-2 mb-4">
                     <Activity className="w-5 h-5 text-primary" />
-                    <span className="font-semibold">Behavior totals</span>
+                    <span className="font-semibold">{t('teacherDashboard.behaviorTotals')}</span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                     <div className="rounded-2xl bg-secondary/10 py-3">
@@ -192,11 +195,11 @@ export function TeacherDashboard() {
                 >
                   <div className="flex items-center gap-2 mb-4">
                     <GraduationCap className="w-5 h-5 text-primary" />
-                    <h2 className="font-semibold">Behavior distribution</h2>
+                    <h2 className="font-semibold">{t('teacherDashboard.behaviorDistribution')}</h2>
                   </div>
                   {chartData.every((d) => d.value === 0) ? (
                     <p className="text-sm text-muted-foreground py-12 text-center">
-                      No behavior records yet. Start tracking from Behavior Tracking.
+                      {t('teacherDashboard.noBehaviorRecords')}
                     </p>
                   ) : (
                     <div className="h-56 w-full">
@@ -230,10 +233,10 @@ export function TeacherDashboard() {
                 >
                   <div className="flex items-center gap-2 mb-4">
                     <Clock className="w-5 h-5 text-primary" />
-                    <h2 className="font-semibold">Recent behaviors</h2>
+                    <h2 className="font-semibold">{t('teacherDashboard.recentBehaviors')}</h2>
                   </div>
                   {!data?.recentBehaviors?.length ? (
-                    <p className="text-sm text-muted-foreground">No recent entries.</p>
+                    <p className="text-sm text-muted-foreground">{t('teacherDashboard.noRecentEntries')}</p>
                   ) : (
                     <ul className="space-y-3">
                       {data.recentBehaviors.map((b) => {
@@ -271,7 +274,7 @@ export function TeacherDashboard() {
               </div>
 
               <div className="mb-8">
-                <h2 className="text-lg font-semibold mb-4">Quick actions</h2>
+                <h2 className="text-lg font-semibold mb-4">{t('teacherDashboard.quickActions')}</h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {quickActions.map((action, index) => (
                     <Link key={action.path} to={action.path}>
@@ -299,9 +302,9 @@ export function TeacherDashboard() {
               >
                 <Calendar className="w-8 h-8 text-primary shrink-0" />
                 <div>
-                  <p className="font-medium">Plan your week</p>
+                  <p className="font-medium">{t('teacherDashboard.planWeek')}</p>
                   <p className="text-sm text-muted-foreground">
-                    Use AI Lesson Generator or review behavior history for patterns.
+                    {t('teacherDashboard.planWeekDescription')}
                   </p>
                 </div>
                 <div className="ml-auto flex flex-wrap gap-2">
@@ -310,14 +313,14 @@ export function TeacherDashboard() {
                     className="inline-flex items-center gap-2 rounded-2xl bg-primary/10 text-primary-foreground px-4 py-2 text-sm font-medium"
                   >
                     <Star className="w-4 h-4" />
-                    AI lesson
+                    {t('teacherDashboard.aiLesson')}
                   </Link>
                   <Link
                     to="/behavior?tab=history"
                     className="inline-flex items-center gap-2 rounded-2xl border border-border px-4 py-2 text-sm font-medium"
                   >
                     <BookOpen className="w-4 h-4" />
-                    History
+                    {t('teacherDashboard.history')}
                   </Link>
                 </div>
               </motion.div>

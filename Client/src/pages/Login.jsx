@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { motion as m } from 'framer-motion'
+import { Trans, useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth.js'
 import { getAuthErrorMessage } from '../services/authService.js'
 import { FormField, TextInput } from '../components/auth/FormField.jsx'
@@ -10,6 +11,7 @@ export function Login() {
   const navigate = useNavigate()
   const location = useLocation()
   const { login, token, user } = useAuth()
+  const { t } = useTranslation()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -33,11 +35,11 @@ export function Login() {
     setEmailError('')
     setPasswordError('')
     if (!email.trim()) {
-      setEmailError('Email is required.')
+      setEmailError(t('auth.errors.emailRequired'))
       ok = false
     }
     if (!password) {
-      setPasswordError('Password is required.')
+      setPasswordError(t('auth.errors.passwordRequired'))
       ok = false
     }
     return ok
@@ -77,10 +79,13 @@ export function Login() {
             🎓
           </m.div>
           <h1 className="text-[2.5rem] mb-4">
-            Welcome to <span className="text-primary">EduKid</span>
+            <Trans
+              i18nKey="auth.welcomeTitle"
+              components={{ name: <span className="text-primary" /> }}
+            />
           </h1>
           <p className="text-[1.125rem] text-muted-foreground">
-            Classroom management for Grade 1 teachers and parents
+            {t('auth.welcomeSubtitle')}
           </p>
         </div>
 
@@ -90,7 +95,7 @@ export function Login() {
           transition={{ delay: 0.2 }}
           className="bg-white rounded-3xl shadow-2xl p-8 border border-border/60"
         >
-          <h2 className="text-center text-xl font-semibold mb-6">Log in</h2>
+          <h2 className="text-center text-xl font-semibold mb-6">{t('auth.loginTitle')}</h2>
 
           {apiError ? (
             <div
@@ -102,7 +107,7 @@ export function Login() {
           ) : null}
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-            <FormField id="login-email" label="Email" required error={emailError}>
+            <FormField id="login-email" label={t('auth.email')} required error={emailError}>
               <TextInput
                 id="login-email"
                 name="email"
@@ -111,12 +116,12 @@ export function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
-                placeholder="you@example.com"
+                placeholder={t('auth.emailPlaceholder')}
                 error={emailError}
               />
             </FormField>
 
-            <FormField id="login-password" label="Password" required error={passwordError}>
+            <FormField id="login-password" label={t('auth.password')} required error={passwordError}>
               <TextInput
                 id="login-password"
                 name="password"
@@ -125,7 +130,7 @@ export function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
-                placeholder="Your password"
+                placeholder={t('auth.passwordPlaceholder')}
                 error={passwordError}
               />
             </FormField>
@@ -135,14 +140,14 @@ export function Login() {
               disabled={loading}
               className="w-full bg-primary text-white py-3.5 rounded-2xl font-medium shadow-lg hover:bg-primary/90 transition-all disabled:opacity-60 disabled:pointer-events-none"
             >
-              {loading ? 'Signing in…' : 'Log in'}
+              {loading ? t('auth.loggingIn') : t('auth.loginButton')}
             </button>
           </form>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
-            Don&apos;t have an account?{' '}
+            {t('auth.noAccount')}{' '}
             <Link to="/register" className="text-primary font-medium hover:underline">
-              Register
+              {t('auth.registerLink')}
             </Link>
           </p>
         </m.div>

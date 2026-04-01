@@ -1,7 +1,7 @@
 "use client";
 import { jsx } from "react/jsx-runtime";
 import * as LabelPrimitive from "@radix-ui/react-label";
-import { cn } from "./utils";
+import { cn } from "./utils.js";
 function Label({
   className,
   ...props

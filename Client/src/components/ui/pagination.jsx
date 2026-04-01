@@ -4,8 +4,8 @@ import {
   ChevronRightIcon,
   MoreHorizontalIcon
 } from "lucide-react";
-import { cn } from "./utils";
-import { buttonVariants } from "./button";
+import { cn } from "./utils.js";
+import { buttonVariants } from "./button.jsx";
 function Pagination({ className, ...props }) {
   return /* @__PURE__ */ jsx(
     "nav",

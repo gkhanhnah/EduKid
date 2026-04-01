@@ -1,7 +1,7 @@
 "use client";
 import { jsx } from "react/jsx-runtime";
 import * as SeparatorPrimitive from "@radix-ui/react-separator";
-import { cn } from "./utils";
+import { cn } from "./utils.js";
 function Separator({
   className,
   orientation = "horizontal",

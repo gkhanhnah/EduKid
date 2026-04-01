@@ -1,7 +1,7 @@
 "use client";
 import { jsx } from "react/jsx-runtime";
 import * as SwitchPrimitive from "@radix-ui/react-switch";
-import { cn } from "./utils";
+import { cn } from "./utils.js";
 function Switch({
   className,
   ...props

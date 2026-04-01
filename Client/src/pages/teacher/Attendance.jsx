@@ -2,15 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Calendar, Loader2, ShieldCheck } from 'lucide-react'
-import { useAuth } from '../hooks/useAuth.js'
-import { homePathForRole } from '../utils/authPaths.js'
-import { Sidebar } from '../components/Sidebar.jsx'
-import { getClassById } from '../services/api.js'
+import { useTranslation } from 'react-i18next'
+import { useAuth } from '../../hooks/useAuth.js'
+import { homePathForRole } from '../../utils/authPaths.js'
+import { Sidebar } from '../../components/Sidebar.jsx'
+import { getClassById } from '../../services/api.js'
 import {
   getAttendanceByDate,
   markAttendance,
   setAttendancePublishedForDate,
-} from '../services/attendance.service.js'
+} from '../../services/attendance.service.js'
 
 const STATUS_META = {
   PRESENT: { label: 'PRESENT', emoji: '✅', tone: 'emerald' },
@@ -26,6 +27,7 @@ function dateInputValue(d = new Date()) {
 }
 
 export function Attendance() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const { classId } = useParams()
   const navigate = useNavigate()
@@ -55,7 +57,7 @@ export function Attendance() {
       const data = await getAttendanceByDate(dateStr, isTeacher ? classId : undefined)
       setStudents(Array.isArray(data?.students) ? data.students : [])
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Could not load attendance')
+      setError(e?.response?.data?.error || e?.message || t('attendancePage.loadFailed'))
       setStudents([])
     } finally {
       setLoading(false)
@@ -165,7 +167,7 @@ export function Attendance() {
           String(r.studentId) === String(studentId) ? { ...r, status: prevStatus } : r,
         ),
       )
-      setActionError(e?.response?.data?.error || e?.message || 'Save failed')
+      setActionError(e?.response?.data?.error || e?.message || t('attendancePage.saveFailed'))
     } finally {
       setSavingStudentId(null)
     }
@@ -186,15 +188,12 @@ export function Attendance() {
       setParentsVisible(nextVisible)
       await loadAttendance()
     } catch (e) {
-      setActionError(e?.response?.data?.error || e?.message || 'Publish failed')
+      setActionError(e?.response?.data?.error || e?.message || t('attendancePage.publishFailed'))
     } finally {
       setPublishing(false)
     }
   }
 
-  if (isParent && !classId) {
-    // In parent mode, classId is not required (API returns linked children automatically).
-  }
 
   if (!isTeacher && !isParent) {
     return <Navigate to={homePathForRole(user?.role)} replace />
@@ -218,16 +217,16 @@ export function Attendance() {
             <div>
               <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
                 <Calendar className="w-7 h-7 text-primary" />
-                Attendance
+                {t('attendancePage.title')}
               </h1>
               <p className="text-muted-foreground mt-1">
-                Mark daily attendance for the selected date.
+                {isTeacher ? t('attendancePage.teacherSubtitle') : t('attendancePage.parentSubtitle')}
               </p>
             </div>
 
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Date</span>
+                <span>{t('attendancePage.date')}</span>
                 <input
                   type="date"
                   value={dateStr}
@@ -246,12 +245,12 @@ export function Attendance() {
                   {publishing ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Updating…
+                      {t('attendancePage.updating')}
                     </>
                   ) : (
                     <>
                       <ShieldCheck className="h-4 w-4" />
-                      {parentsVisible ? 'Unshow to parents' : 'Show to parents'}
+                      {parentsVisible ? t('attendancePage.unshowToParents') : t('attendancePage.showToParents')}
                     </>
                   )}
                 </button>
@@ -275,20 +274,20 @@ export function Attendance() {
         <div className="mb-6 rounded-3xl border border-border bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center gap-4 justify-between">
             <div className="text-sm text-muted-foreground">
-              Totals (marked only) · <span className="text-foreground font-medium">{dateStr}</span>
+              {t('attendancePage.totalsMarkedOnly')} · <span className="text-foreground font-medium">{dateStr}</span>
             </div>
             <div className="flex flex-wrap gap-3 text-sm">
               <span className="rounded-full px-3 py-1 bg-emerald-500/15 text-emerald-800">
-                PRESENT: {totals.PRESENT}
+                {t('attendancePage.present')}: {totals.PRESENT}
               </span>
               <span className="rounded-full px-3 py-1 bg-destructive/10 text-destructive">
-                ABSENT: {totals.ABSENT}
+                {t('attendancePage.absent')}: {totals.ABSENT}
               </span>
               <span className="rounded-full px-3 py-1 bg-amber-500/15 text-amber-800">
-                LATE: {totals.LATE}
+                {t('attendancePage.late')}: {totals.LATE}
               </span>
               <span className="rounded-full px-3 py-1 bg-primary/10 text-primary">
-                EXCUSED: {totals.EXCUSED}
+                {t('attendancePage.excused')}: {totals.EXCUSED}
               </span>
             </div>
           </div>
@@ -297,12 +296,12 @@ export function Attendance() {
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
             <Loader2 className="h-6 w-6 animate-spin" />
-            Loading attendance…
+            {t('attendancePage.loading')}
           </div>
         ) : (
           <div className="grid gap-4">
             {students.map((row) => {
-              const studentName = row?.student?.name ?? 'Student'
+              const studentName = row?.student?.name ?? t('common.student')
               const sid = row?.studentId
 
               const disabled = !isTeacher || savingStudentId != null && String(savingStudentId) !== String(sid)
@@ -319,7 +318,7 @@ export function Attendance() {
                       <div className="font-semibold text-foreground truncate">{studentName}</div>
                       {isTeacher && row?.student?.classId ? (
                         <div className="text-sm text-muted-foreground truncate mt-1">
-                          Class: {row.student.classId?.name ?? '—'}
+                          {t('attendancePage.classLabel')}: {row.student.classId?.name ?? t('common.none')}
                         </div>
                       ) : null}
                     </div>
@@ -371,7 +370,7 @@ export function Attendance() {
 
             {students.length === 0 ? (
               <div className="rounded-3xl border border-border bg-white p-10 text-center text-muted-foreground">
-                Teacher did not mark attendance for this date.
+                {t('attendancePage.noAttendanceForDate')}
               </div>
             ) : null}
           </div>

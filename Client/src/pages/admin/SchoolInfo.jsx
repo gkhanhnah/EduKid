@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2, Save, Upload } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { fetchAdminSchoolInfo, updateAdminSchoolInfo } from '../../services/adminService.js'
 import { toastError, toastSuccess } from '../../components/ui/toast.js'
+import { getUiErrorMessage } from '../../utils/errorMessages.js'
 
 function dateInputValue(value) {
   if (!value) return ''
@@ -39,6 +41,7 @@ function SectionCard({ title, description, children }) {
 }
 
 export default function AdminSchoolInfo() {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -70,7 +73,7 @@ export default function AdminSchoolInfo() {
         })
       } catch (e) {
         if (cancelled) return
-        const message = e?.response?.data?.error || e?.message || 'Failed to load school information'
+        const message = getUiErrorMessage(e, t('adminSchoolInfo.loadFailed'))
         setError(message)
         toastError(message)
       } finally {
@@ -98,7 +101,7 @@ export default function AdminSchoolInfo() {
       updateField('logoUrl', result)
     }
     reader.onerror = () => {
-      toastError('Could not read selected image')
+      toastError(t('adminSchoolInfo.readImageFailed'))
     }
     reader.readAsDataURL(file)
   }
@@ -106,13 +109,13 @@ export default function AdminSchoolInfo() {
   async function handleSave() {
     setError('')
     if (!form.schoolName.trim()) {
-      const message = 'School name is required'
+      const message = t('adminSchoolInfo.schoolNameRequired')
       setError(message)
       toastError(message)
       return
     }
     if (form.startDate && form.endDate && new Date(form.startDate) > new Date(form.endDate)) {
-      const message = 'Start date must be before or equal to end date'
+      const message = t('adminSchoolInfo.invalidDateRange')
       setError(message)
       toastError(message)
       return
@@ -134,9 +137,9 @@ export default function AdminSchoolInfo() {
         principalName: form.principalName,
         principalEmail: form.principalEmail,
       })
-      toastSuccess('Saved successfully')
+      toastSuccess(t('adminSchoolInfo.savedSuccessfully'))
     } catch (e) {
-      const message = e?.response?.data?.error || e?.message || 'Failed to save school information'
+      const message = getUiErrorMessage(e, t('adminSchoolInfo.saveFailed'))
       setError(message)
       toastError(message)
     } finally {
@@ -149,8 +152,8 @@ export default function AdminSchoolInfo() {
       <div className="sticky top-0 z-20 -mx-4 border-b border-border bg-background/95 px-4 py-4 backdrop-blur md:-mx-8 md:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">School Information</h1>
-            <p className="mt-1 text-muted-foreground">Manage school profile, academic information, and principal contact details.</p>
+            <h1 className="text-2xl md:text-3xl font-bold">{t('adminSchoolInfo.title')}</h1>
+            <p className="mt-1 text-muted-foreground">{t('adminSchoolInfo.subtitle')}</p>
           </div>
           <button
             type="button"
@@ -159,7 +162,7 @@ export default function AdminSchoolInfo() {
             className="inline-flex w-fit items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white hover:bg-primary/90 disabled:opacity-60"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('adminSchoolInfo.saving') : t('common.save')}
           </button>
         </div>
       </div>
@@ -167,24 +170,24 @@ export default function AdminSchoolInfo() {
       {error ? <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{error}</div> : null}
 
       {loading ? (
-        <div className="rounded-3xl border border-border bg-white p-12 text-center text-muted-foreground shadow-sm">Loading…</div>
+        <div className="rounded-3xl border border-border bg-white p-12 text-center text-muted-foreground shadow-sm">{t('common.loading')}</div>
       ) : (
         <>
-          <SectionCard title="School Profile" description="Branding and contact details shown across the school system.">
+          <SectionCard title={t('adminSchoolInfo.schoolProfile')} description={t('adminSchoolInfo.schoolProfileDescription')}>
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
               <div className="space-y-4">
                 <div className="overflow-hidden rounded-3xl border border-dashed border-border bg-muted/20">
                   {logoPreview ? (
-                    <img src={logoPreview} alt="School logo preview" className="h-56 w-full object-contain bg-white p-6" />
+                    <img src={logoPreview} alt={t('adminSchoolInfo.schoolLogoPreview')} className="h-56 w-full object-contain bg-white p-6" />
                   ) : (
                     <div className="flex h-56 flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
                       <Upload className="h-8 w-8" />
-                      <p>No logo uploaded yet</p>
+                      <p>{t('adminSchoolInfo.noLogoYet')}</p>
                     </div>
                   )}
                 </div>
                 <label className="block">
-                  <span className="text-sm font-medium">Upload logo</span>
+                  <span className="text-sm font-medium">{t('adminSchoolInfo.uploadLogo')}</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -196,63 +199,63 @@ export default function AdminSchoolInfo() {
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <label className="block md:col-span-2">
-                  <span className="text-sm font-medium">School Name</span>
+                  <span className="text-sm font-medium">{t('adminSchoolInfo.schoolName')}</span>
                   <input value={form.schoolName} onChange={(e) => updateField('schoolName', e.target.value)} className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-3" />
                 </label>
                 <label className="block md:col-span-2">
-                  <span className="text-sm font-medium">Address</span>
+                  <span className="text-sm font-medium">{t('adminSchoolInfo.address')}</span>
                   <input value={form.address} onChange={(e) => updateField('address', e.target.value)} className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-3" />
                 </label>
                 <label className="block">
-                  <span className="text-sm font-medium">Phone</span>
+                  <span className="text-sm font-medium">{t('adminSchoolInfo.phone')}</span>
                   <input value={form.phone} onChange={(e) => updateField('phone', e.target.value)} className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-3" />
                 </label>
                 <label className="block">
-                  <span className="text-sm font-medium">Email</span>
+                  <span className="text-sm font-medium">{t('adminSchoolInfo.email')}</span>
                   <input value={form.email} onChange={(e) => updateField('email', e.target.value)} className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-3" />
                 </label>
                 <label className="block md:col-span-2">
-                  <span className="text-sm font-medium">Website</span>
-                  <input value={form.website} onChange={(e) => updateField('website', e.target.value)} placeholder="https://school.example.com" className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-3" />
+                  <span className="text-sm font-medium">{t('adminSchoolInfo.website')}</span>
+                  <input value={form.website} onChange={(e) => updateField('website', e.target.value)} placeholder={t('adminSchoolInfo.websitePlaceholder')} className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-3" />
                 </label>
               </div>
             </div>
           </SectionCard>
 
-          <SectionCard title="Academic Info" description="Define the active academic period used by the school.">
+          <SectionCard title={t('adminSchoolInfo.academicInfo')} description={t('adminSchoolInfo.academicInfoDescription')}>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label className="block">
-                <span className="text-sm font-medium">Academic Year</span>
-                <input value={form.academicYear} onChange={(e) => updateField('academicYear', e.target.value)} placeholder="2025-2026" className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-3" />
+                <span className="text-sm font-medium">{t('adminSchoolInfo.academicYear')}</span>
+                <input value={form.academicYear} onChange={(e) => updateField('academicYear', e.target.value)} placeholder={t('adminSchoolInfo.academicYearPlaceholder')} className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-3" />
               </label>
               <label className="block">
-                <span className="text-sm font-medium">Semester</span>
+                <span className="text-sm font-medium">{t('adminSchoolInfo.semester')}</span>
                 <select value={form.semester} onChange={(e) => updateField('semester', e.target.value)} className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-3">
-                  <option value="Semester 1">Semester 1</option>
-                  <option value="Semester 2">Semester 2</option>
-                  <option value="Summer">Summer</option>
-                  <option value="Custom">Custom</option>
+                  <option value="Semester 1">{t('adminSchoolInfo.semester1')}</option>
+                  <option value="Semester 2">{t('adminSchoolInfo.semester2')}</option>
+                  <option value="Summer">{t('adminSchoolInfo.summer')}</option>
+                  <option value="Custom">{t('adminSchoolInfo.custom')}</option>
                 </select>
               </label>
               <label className="block">
-                <span className="text-sm font-medium">Start Date</span>
+                <span className="text-sm font-medium">{t('adminSchoolInfo.startDate')}</span>
                 <input type="date" value={form.startDate} onChange={(e) => updateField('startDate', e.target.value)} className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-3" />
               </label>
               <label className="block">
-                <span className="text-sm font-medium">End Date</span>
+                <span className="text-sm font-medium">{t('adminSchoolInfo.endDate')}</span>
                 <input type="date" value={form.endDate} onChange={(e) => updateField('endDate', e.target.value)} className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-3" />
               </label>
             </div>
           </SectionCard>
 
-          <SectionCard title="Admin Info" description="Primary contact details for the school administrator or principal.">
+          <SectionCard title={t('adminSchoolInfo.adminInfo')} description={t('adminSchoolInfo.adminInfoDescription')}>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label className="block">
-                <span className="text-sm font-medium">Principal Name</span>
+                <span className="text-sm font-medium">{t('adminSchoolInfo.principalName')}</span>
                 <input value={form.principalName} onChange={(e) => updateField('principalName', e.target.value)} className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-3" />
               </label>
               <label className="block">
-                <span className="text-sm font-medium">Contact Email</span>
+                <span className="text-sm font-medium">{t('adminSchoolInfo.contactEmail')}</span>
                 <input value={form.principalEmail} onChange={(e) => updateField('principalEmail', e.target.value)} className="mt-1 w-full rounded-2xl border border-border bg-background px-4 py-3" />
               </label>
             </div>

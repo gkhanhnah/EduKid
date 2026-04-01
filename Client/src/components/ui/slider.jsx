@@ -2,7 +2,7 @@
 import { jsx, jsxs } from "react/jsx-runtime";
 import * as React from "react";
 import * as SliderPrimitive from "@radix-ui/react-slider";
-import { cn } from "./utils";
+import { cn } from "./utils.js";
 function Slider({
   className,
   defaultValue,

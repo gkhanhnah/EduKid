@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Sidebar } from '../components/Sidebar.jsx'
+import { useTranslation } from 'react-i18next'
+import { Sidebar } from '../../components/Sidebar.jsx'
 import {
   getClassById,
   addStudentToClass,
   addSubjectTeacherToClass,
   addParentToStudent,
-} from '../services/classService.js'
+} from '../../services/classService.js'
 import {
   ArrowLeft,
   Loader2,
@@ -20,6 +21,7 @@ import {
 } from 'lucide-react'
 
 export function ClassDetail() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const navigate = useNavigate()
   const [detail, setDetail] = useState(null)
@@ -42,7 +44,7 @@ export function ClassDetail() {
       const data = await getClassById(id)
       setDetail(data)
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Failed to load class')
+      setError(e?.response?.data?.error || e?.message || t('teacherClassDetail.loadFailed'))
       setDetail(null)
     } finally {
       setLoading(false)
@@ -57,7 +59,7 @@ export function ClassDetail() {
     e.preventDefault()
     setFormErr('')
     if (!form.name.trim()) {
-      setFormErr('Name is required')
+      setFormErr(t('teacherClassDetail.nameRequired'))
       return
     }
     setBusy(true)
@@ -71,7 +73,7 @@ export function ClassDetail() {
       setStudentOpen(false)
       load()
     } catch (err) {
-      setFormErr(err?.response?.data?.error || err?.message || 'Failed')
+      setFormErr(err?.response?.data?.error || err?.message || t('teacherClassDetail.actionFailed'))
     } finally {
       setBusy(false)
     }
@@ -81,7 +83,7 @@ export function ClassDetail() {
     e.preventDefault()
     setFormErr('')
     if (!teacherIdInput.trim()) {
-      setFormErr('Teacher email is required')
+      setFormErr(t('teacherClassDetail.teacherEmailRequired'))
       return
     }
     setBusy(true)
@@ -91,7 +93,7 @@ export function ClassDetail() {
       setTeacherOpen(false)
       load()
     } catch (err) {
-      setFormErr(err?.response?.data?.error || err?.message || 'Failed')
+      setFormErr(err?.response?.data?.error || err?.message || t('teacherClassDetail.actionFailed'))
     } finally {
       setBusy(false)
     }
@@ -102,7 +104,7 @@ export function ClassDetail() {
     if (!parentModal) return
     setFormErr('')
     if (!parentForm.email.trim()) {
-      setFormErr('Parent email is required')
+      setFormErr(t('teacherClassDetail.parentEmailRequired'))
       return
     }
     setBusy(true)
@@ -115,7 +117,7 @@ export function ClassDetail() {
       setParentModal(null)
       load()
     } catch (err) {
-      setFormErr(err?.response?.data?.error || err?.message || 'Failed')
+      setFormErr(err?.response?.data?.error || err?.message || t('teacherClassDetail.actionFailed'))
     } finally {
       setBusy(false)
     }
@@ -131,13 +133,13 @@ export function ClassDetail() {
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to classes
+            {t('teacherClassDetail.backToClasses')}
           </Link>
 
           {loading ? (
             <div className="flex items-center gap-2 text-muted-foreground py-12 justify-center">
               <Loader2 className="w-6 h-6 animate-spin" />
-              Loading class…
+              {t('teacherClassDetail.loading')}
             </div>
           ) : error ? (
             <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-destructive">
@@ -147,7 +149,7 @@ export function ClassDetail() {
                 className="block mt-4 underline text-sm"
                 onClick={() => navigate('/classes')}
               >
-                Return to list
+                {t('teacherClassDetail.returnToList')}
               </button>
             </div>
           ) : detail ? (
@@ -156,12 +158,12 @@ export function ClassDetail() {
                 <div>
                   <h1 className="text-2xl font-semibold">{detail.name}</h1>
                   <p className="text-muted-foreground mt-1">
-                    Grade:{' '}
+                    {t('teacherClassDetail.gradeLabel')}{' '}
                     {detail.grade !== undefined &&
                       detail.grade !== null &&
                       detail.grade !== ''
                       ? detail.grade
-                      : '—'}
+                      : t('common.none')}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -169,35 +171,37 @@ export function ClassDetail() {
                     to={`/classes/${id}/timetable`}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm"
                   >
-                    View timetable
+                    {t('teacherClassDetail.viewTimetable')}
                   </Link>
                   <Link
                     to={`/classes/${id}/chat`}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-sm"
                   >
-                    Open chat
+                    {t('teacherClassDetail.openChat')}
                   </Link>
                   <Link
                     to={`/classes/${id}/grades`}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm"
                   >
                     <ClipboardCheck className="w-4 h-4 text-primary" />
-                    Grades
+                    {t('common.grades')}
                   </Link>
                   <Link
                     to={`/classes/${id}/homework`}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm"
                   >
                     <BookOpen className="w-4 h-4 text-primary" />
-                    Homework
+                    {t('common.homework')}
                   </Link>
-                  <Link
-                    to={`/classes/${id}/attendance`}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm"
-                  >
-                    <CalendarDays className="w-4 h-4 text-primary" />
-                    Attendance
-                  </Link>
+                  {detail.isMainTeacher ? (
+                    <Link
+                      to={`/classes/${id}/attendance`}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm"
+                    >
+                      <CalendarDays className="w-4 h-4 text-primary" />
+                      {t('common.attendance')}
+                    </Link>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => {
@@ -207,7 +211,7 @@ export function ClassDetail() {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm"
                   >
                     <UserPlus className="w-4 h-4" />
-                    Add student
+                    {t('common.addStudent')}
                   </button>
                   {detail.isMainTeacher ? (
                     <button
@@ -219,7 +223,7 @@ export function ClassDetail() {
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm"
                     >
                       <GraduationCap className="w-4 h-4" />
-                      Invite teacher
+                      {t('teacherClassDetail.inviteTeacher')}
                     </button>
                   ) : null}
                 </div>
@@ -229,11 +233,11 @@ export function ClassDetail() {
                 <div className="bg-white rounded-2xl border border-border p-6 shadow-sm">
                   <h2 className="font-medium flex items-center gap-2 mb-3">
                     <Users className="w-5 h-5 text-primary" />
-                    Main teacher
+                    {t('teacherClassDetail.mainTeacher')}
                   </h2>
                   {/* Cập nhật font name cho Main teacher */}
                   <p className="text-base font-medium text-foreground">
-                    {detail.mainTeacher?.name ?? '—'}
+                    {detail.mainTeacher?.name ?? t('common.none')}
                   </p>
                   {detail.mainTeacher?.email ? (
                     <p className="text-sm text-muted-foreground">
@@ -243,7 +247,7 @@ export function ClassDetail() {
                 </div>
 
                 <div className="bg-white rounded-2xl border border-border p-6 shadow-sm">
-                  <h2 className="font-medium mb-3">Subject teachers</h2>
+                  <h2 className="font-medium mb-3">{t('teacherClassDetail.subjectTeachers')}</h2>
                   {detail.subjectTeachers?.length ? (
                     <ul className="space-y-3">
                       {detail.subjectTeachers.map((t) => (
@@ -262,14 +266,14 @@ export function ClassDetail() {
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-muted-foreground">None yet</p>
+                    <p className="text-sm text-muted-foreground">{t('teacherClassDetail.noneYet')}</p>
                   )}
                 </div>
               </div>
 
               <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
                 <h2 className="font-medium p-6 border-b border-border">
-                  Students ({detail.students?.length ?? 0})
+                  {t('teacherClassDetail.students', { count: detail.students?.length ?? 0 })}
                 </h2>
                 <ul className="divide-y divide-border">
                   {(detail.students || []).map((s) => (
@@ -283,9 +287,9 @@ export function ClassDetail() {
                       >
                         <p className="font-medium">{s.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          Parents linked: {s.parentCount ?? 0}
+                          {t('teacherClassDetail.parentsLinked', { count: s.parentCount ?? 0 })}
                         </p>
-                        <p className="text-xs text-primary mt-1">View profile →</p>
+                        <p className="text-xs text-primary mt-1">{t('teacherClassDetail.viewProfile')}</p>
                       </Link>
                       <div className="flex items-center px-6 py-4 shrink-0 border-l border-border">
                         <button
@@ -297,14 +301,14 @@ export function ClassDetail() {
                           className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
                         >
                           <Mail className="w-4 h-4" />
-                          Add parent
+                          {t('teacherClassDetail.addParent')}
                         </button>
                       </div>
                     </li>
                   ))}
                   {!detail.students?.length ? (
                     <li className="px-6 py-8 text-center text-muted-foreground text-sm">
-                      No students yet.
+                      {t('teacherClassDetail.noStudents')}
                     </li>
                   ) : null}
                 </ul>
@@ -317,19 +321,19 @@ export function ClassDetail() {
         {studentOpen ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-              <h3 className="font-semibold mb-4">Add student</h3>
+              <h3 className="font-semibold mb-4">{t('common.addStudent')}</h3>
               {formErr ? (
                 <p className="text-sm text-destructive mb-3">{formErr}</p>
               ) : null}
               <form onSubmit={submitStudent} className="space-y-3">
                 <input
-                  placeholder="Name *"
+                  placeholder={t('teacherClassDetail.namePlaceholder')}
                   value={form.name}
                   onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                   className="w-full px-4 py-2 border rounded-xl"
                 />
                 <input
-                  placeholder="Age"
+                  placeholder={t('teacherClassDetail.agePlaceholder')}
                   type="number"
                   value={form.age}
                   onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))}
@@ -340,10 +344,10 @@ export function ClassDetail() {
                   onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value }))}
                   className="w-full px-4 py-2 border rounded-xl"
                 >
-                  <option value="">Gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
+                  <option value="">{t('teacherClassDetail.gender')}</option>
+                  <option value="Male">{t('teacherClassDetail.male')}</option>
+                  <option value="Female">{t('teacherClassDetail.female')}</option>
+                  <option value="Other">{t('teacherClassDetail.other')}</option>
                 </select>
                 <div className="flex gap-2 pt-2">
                   <button
@@ -352,14 +356,14 @@ export function ClassDetail() {
                     onClick={() => setStudentOpen(false)}
                     disabled={busy}
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={busy}
                     className="flex-1 py-2 rounded-xl bg-primary text-white disabled:opacity-50"
                   >
-                    {busy ? 'Saving…' : 'Save'}
+                    {busy ? t('teacherClassDetail.saving') : t('common.save')}
                   </button>
                 </div>
               </form>
@@ -371,16 +375,16 @@ export function ClassDetail() {
         {teacherOpen ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-              <h3 className="font-semibold mb-2">Invite subject teacher</h3>
+              <h3 className="font-semibold mb-2">{t('teacherClassDetail.inviteTeacher')}</h3>
               <p className="text-xs text-muted-foreground mb-4">
-                Enter the invited teacher&apos;s email address (registered teacher account).
+                {t('teacherClassDetail.inviteTeacherHelp')}
               </p>
               {formErr ? (
                 <p className="text-sm text-destructive mb-3">{formErr}</p>
               ) : null}
               <form onSubmit={submitTeacher} className="space-y-3">
                 <input
-                  placeholder="Teacher email"
+                  placeholder={t('teacherClassDetail.teacherEmailPlaceholder')}
                   value={teacherIdInput}
                   onChange={(e) => setTeacherIdInput(e.target.value)}
                   className="w-full px-4 py-2 border rounded-xl font-mono text-sm"
@@ -392,14 +396,14 @@ export function ClassDetail() {
                     onClick={() => setTeacherOpen(false)}
                     disabled={busy}
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={busy}
                     className="flex-1 py-2 rounded-xl bg-primary text-white disabled:opacity-50"
                   >
-                    {busy ? 'Inviting…' : 'Invite'}
+                    {busy ? t('teacherClassDetail.inviting') : t('teacherClassDetail.invite')}
                   </button>
                 </div>
               </form>
@@ -411,13 +415,13 @@ export function ClassDetail() {
         {parentModal ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-              <h3 className="font-semibold mb-4">Link parent by email</h3>
+              <h3 className="font-semibold mb-4">{t('teacherClassDetail.linkParent')}</h3>
               {formErr ? (
                 <p className="text-sm text-destructive mb-3">{formErr}</p>
               ) : null}
               <form onSubmit={submitParent} className="space-y-3">
                 <input
-                  placeholder="Parent email (registered account) *"
+                  placeholder={t('teacherClassDetail.parentEmailPlaceholder')}
                   type="email"
                   value={parentForm.email}
                   onChange={(e) =>
@@ -426,7 +430,7 @@ export function ClassDetail() {
                   className="w-full px-4 py-2 border rounded-xl"
                 />
                 <input
-                  placeholder="Relationship (optional)"
+                  placeholder={t('teacherClassDetail.relationshipPlaceholder')}
                   value={parentForm.relationship}
                   onChange={(e) =>
                     setParentForm((p) => ({ ...p, relationship: e.target.value }))
@@ -440,14 +444,14 @@ export function ClassDetail() {
                     onClick={() => setParentModal(null)}
                     disabled={busy}
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={busy}
                     className="flex-1 py-2 rounded-xl bg-primary text-white disabled:opacity-50"
                   >
-                    {busy ? 'Linking…' : 'Link parent'}
+                    {busy ? t('teacherClassDetail.linking') : t('teacherClassDetail.linkParentAction')}
                   </button>
                 </div>
               </form>

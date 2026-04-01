@@ -10,31 +10,32 @@ import {
   Settings,
   Activity,
 } from 'lucide-react'
-
-const navItems = [
-  { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/admin/students', icon: Users, label: 'Students' },
-  { path: '/admin/teachers', icon: Activity, label: 'Teachers' },
-  { path: '/admin/classes', icon: School, label: 'Classes' },
-  { path: '/admin/grades', icon: ClipboardCheck, label: 'Grades' },
-  { path: '/admin/attendance', icon: CalendarDays, label: 'Attendance' },
-  { path: '/admin/documents', icon: FolderOpen, label: 'Documents' },
-  { path: '/admin/reports', icon: FileText, label: 'Reports' },
-  { path: '/admin/school-info', icon: School, label: 'School Info' },
-  { path: '/admin/settings', icon: Settings, label: 'Settings' },
-]
+import { useTranslation } from 'react-i18next'
 
 export function AdminSidebar() {
   const location = useLocation()
+  const { t } = useTranslation()
+  const navItems = [
+    { path: '/admin', icon: LayoutDashboard, label: t('nav.dashboard') },
+    { path: '/admin/students', icon: Users, label: t('nav.students') },
+    { path: '/admin/teachers', icon: Activity, label: t('nav.teachers') },
+    { path: '/admin/classes', icon: School, label: t('nav.classes') },
+    { path: '/admin/grades', icon: ClipboardCheck, label: t('nav.grades') },
+    { path: '/admin/attendance', icon: CalendarDays, label: t('nav.attendance') },
+    { path: '/admin/documents', icon: FolderOpen, label: t('nav.documents') },
+    { path: '/admin/reports', icon: FileText, label: t('nav.reports') },
+    { path: '/admin/school-info', icon: School, label: t('nav.schoolInfo') },
+    { path: '/admin/settings', icon: Settings, label: t('nav.settings') },
+  ]
 
   return (
     <aside className="flex h-auto w-full shrink-0 flex-col border-b border-border bg-white md:h-screen md:w-64 md:border-b-0 md:border-r sticky top-0">
       <div className="border-b border-border p-6 shrink-0">
         <h2 className="flex items-center gap-2">
           <span className="text-[2rem]">🎒</span>
-          <span className="text-primary font-bold">School Admin</span>
+          <span className="text-primary font-bold">{t('common.schoolAdmin')}</span>
         </h2>
-        <p className="mt-1 text-[0.875rem] text-muted-foreground">Principal CMS</p>
+        <p className="mt-1 text-[0.875rem] text-muted-foreground">{t('common.principalCms')}</p>
       </div>
 
       <nav className="flex flex-1 flex-col gap-2 overflow-y-auto p-4 custom-scrollbar">

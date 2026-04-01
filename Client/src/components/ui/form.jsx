@@ -8,8 +8,8 @@ import {
   useFormContext,
   useFormState
 } from "react-hook-form";
-import { cn } from "./utils";
-import { Label } from "./label";
+import { cn } from "./utils.js";
+import { Label } from "./label.jsx";
 const Form = FormProvider;
 const FormFieldContext = React.createContext(
   {}

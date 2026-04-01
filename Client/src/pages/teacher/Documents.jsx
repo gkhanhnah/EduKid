@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   Folder,
   FileText,
@@ -14,17 +15,19 @@ import {
   Eye,
   X,
 } from 'lucide-react'
-import { Sidebar } from '../components/Sidebar.jsx'
-import { useAuth } from '../hooks/useAuth.js'
-import { homePathForRole } from '../utils/authPaths.js'
-import { LoadingState } from '../components/LoadingState.jsx'
-import { ErrorBanner } from '../components/ErrorBanner.jsx'
+import { Sidebar } from '../../components/Sidebar.jsx'
+import { useAuth } from '../../hooks/useAuth.js'
+import { homePathForRole } from '../../utils/authPaths.js'
+import { LoadingState } from '../../components/LoadingState.jsx'
+import { ErrorBanner } from '../../components/ErrorBanner.jsx'
 import {
   getFolders,
   createFolder,
   uploadDocument,
   getDocuments,
-} from '../services/document.service.js'
+} from '../../services/document.service.js'
+import { getUiErrorMessage } from '../../utils/errorMessages.js'
+import { formatDateTime, formatRelativeTimeFromNow } from '../../utils/locale.js'
 
 function uploadsBaseUrl() {
   const api = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || 'http://localhost:3000/api'
@@ -52,7 +55,7 @@ function documentPreviewIframeSrc(documentId) {
 function formatDate(iso) {
   if (!iso) return '—'
   try {
-    return new Date(iso).toLocaleString(undefined, {
+    return formatDateTime(iso, {
       dateStyle: 'medium',
       timeStyle: 'short',
     })
@@ -64,15 +67,8 @@ function formatDate(iso) {
 function formatRelativeTime(iso) {
   if (!iso) return ''
   try {
-    const d = new Date(iso)
-    const sec = Math.round((Date.now() - d.getTime()) / 1000)
-    if (sec < 60) return 'just now'
-    const min = Math.round(sec / 60)
-    if (min < 60) return `${min} min ago`
-    const hr = Math.round(min / 60)
-    if (hr < 48) return `${hr} hour${hr === 1 ? '' : 's'} ago`
-    const day = Math.round(hr / 24)
-    if (day < 14) return `${day} day${day === 1 ? '' : 's'} ago`
+    const relative = formatRelativeTimeFromNow(iso)
+    if (relative) return relative
     return formatDate(iso)
   } catch {
     return ''
@@ -86,14 +82,14 @@ function matchesSearch(text, q) {
     .includes(q.trim().toLowerCase())
 }
 
-function FolderModal({ open, title, children, onClose }) {
+function FolderModal({ open, title, children, onClose, closeLabel }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
       <button
         type="button"
         className="absolute inset-0 bg-black/60"
-        aria-label="Close"
+        aria-label={closeLabel}
         onClick={onClose}
       />
       <div className="relative w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl">
@@ -105,6 +101,7 @@ function FolderModal({ open, title, children, onClose }) {
 }
 
 function PreviewModal({ doc, onClose }) {
+  const { t } = useTranslation()
   const frameSrc = doc?._id ? documentPreviewIframeSrc(doc._id) : ''
 
   return (
@@ -112,7 +109,7 @@ function PreviewModal({ doc, onClose }) {
       <button
         type="button"
         className="absolute inset-0 bg-black/70"
-        aria-label="Close preview"
+        aria-label={t('documentsPage.closePreview')}
         onClick={onClose}
       />
       <div className="relative flex max-h-[90vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl">
@@ -125,13 +122,13 @@ function PreviewModal({ doc, onClose }) {
               rel="noopener noreferrer"
               className="rounded-lg px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-zinc-100"
             >
-              Open file
+              {t('documentsPage.openFile')}
             </a>
             <button
               type="button"
               onClick={onClose}
               className="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100"
-              aria-label="Close"
+              aria-label={t('common.close')}
             >
               <X className="h-5 w-5" />
             </button>
@@ -142,13 +139,12 @@ function PreviewModal({ doc, onClose }) {
             <iframe title={doc?.name} src={frameSrc} className="h-[min(90vh,720px)] w-full border-0 bg-white" />
           ) : (
             <div className="flex h-[min(40vh,400px)] items-center justify-center p-6 text-center text-sm text-zinc-600">
-              Preview is not available.
+              {t('documentsPage.previewNotAvailable')}
             </div>
           )}
         </div>
         <p className="border-t border-zinc-100 px-4 py-2 text-xs text-zinc-500">
-          Preview is served by your app: PDF inline; Word (.docx) and Excel as HTML. Legacy .doc and
-          PowerPoint show a short message; use Open file if needed.
+          {t('documentsPage.previewHelp')}
         </p>
       </div>
     </div>
@@ -156,10 +152,11 @@ function PreviewModal({ doc, onClose }) {
 }
 
 export function Documents() {
+  const { t } = useTranslation()
   const { user } = useAuth()
 
   /** Navigation: stack[0] = root (All Files), last = current folder */
-  const [pathStack, setPathStack] = useState([{ id: null, name: 'All Files' }])
+  const [pathStack, setPathStack] = useState([{ id: null, name: t('documentsPage.allFiles') }])
 
   const [foldersLoading, setFoldersLoading] = useState(true)
   const [foldersError, setFoldersError] = useState('')
@@ -194,7 +191,7 @@ export function Documents() {
       const data = await getFolders(params)
       setFolders(Array.isArray(data?.folders) ? data.folders : [])
     } catch (e) {
-      setFoldersError(e?.response?.data?.error || e?.message || 'Could not load folders')
+      setFoldersError(getUiErrorMessage(e, t('documentsPage.loadFoldersFailed')))
       setFolders([])
     } finally {
       setFoldersLoading(false)
@@ -212,7 +209,7 @@ export function Documents() {
       const data = await getDocuments(folderId)
       setDocuments(Array.isArray(data?.documents) ? data.documents : [])
     } catch (e) {
-      setDocsError(e?.response?.data?.error || e?.message || 'Could not load documents')
+      setDocsError(getUiErrorMessage(e, t('documentsPage.loadDocumentsFailed')))
       setDocuments([])
     } finally {
       setDocsLoading(false)
@@ -258,7 +255,7 @@ export function Documents() {
     setCreateFolderError('')
     const name = newFolderName.trim()
     if (!name) {
-      setCreateFolderError('Folder name is required.')
+      setCreateFolderError(t('documentsPage.folderNameRequired'))
       return
     }
     setCreatingFolder(true)
@@ -270,7 +267,7 @@ export function Documents() {
       setFolderModalOpen(false)
       await loadFolders()
     } catch (err) {
-      setCreateFolderError(err?.response?.data?.error || err?.message || 'Could not create folder')
+      setCreateFolderError(getUiErrorMessage(err, t('documentsPage.createFolderFailed')))
     } finally {
       setCreatingFolder(false)
     }
@@ -290,7 +287,7 @@ export function Documents() {
       await uploadDocument(fd)
       await loadDocuments(currentFolderId)
     } catch (err) {
-      setUploadError(err?.response?.data?.error || err?.message || 'Upload failed')
+      setUploadError(getUiErrorMessage(err, t('documentsPage.uploadFailed')))
     } finally {
       setUploadBusy(false)
     }
@@ -320,10 +317,10 @@ export function Documents() {
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-                Documents &amp; Drawings
+                {t('documentsPage.title')}
               </h1>
               <p className="mt-1 text-sm text-zinc-400">
-                Manage project files and folders. PDF, Word, PowerPoint, Excel up to 10MB.
+                {t('documentsPage.subtitle')}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 shrink-0">
@@ -337,15 +334,15 @@ export function Documents() {
                 className="inline-flex items-center gap-2 rounded-xl border border-white bg-white px-4 py-2.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-100 transition-colors"
               >
                 <FolderPlus className="h-4 w-4" />
-                New Folder
+                {t('documentsPage.newFolder')}
               </button>
               <label
                 className={`inline-flex cursor-pointer items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-500 ${!canUpload || uploadBusy ? 'pointer-events-none opacity-45' : ''
                   }`}
-                title={!canUpload ? 'Open a folder to upload files' : undefined}
+                title={!canUpload ? t('documentsPage.openFolderToUpload') : undefined}
               >
                 <Upload className="h-4 w-4" />
-                {uploadBusy ? 'Uploading…' : 'Upload'}
+                {uploadBusy ? t('documentsPage.uploading') : t('common.upload')}
                 <input
                   type="file"
                   className="hidden"
@@ -364,14 +361,14 @@ export function Documents() {
                 type="search"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search files and folders…"
+                placeholder={t('documentsPage.searchPlaceholder')}
                 className="w-full rounded-2xl border-0 bg-white py-3.5 pl-12 pr-4 text-zinc-900 shadow-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
               />
             </div>
             <div className="flex gap-1 rounded-2xl p-1">
               <button
                 type="button"
-                aria-label="List view"
+                aria-label={t('documentsPage.listView')}
                 className={listToggleClass(viewMode === 'list')}
                 onClick={() => setViewMode('list')}
               >
@@ -379,7 +376,7 @@ export function Documents() {
               </button>
               <button
                 type="button"
-                aria-label="Grid view"
+                aria-label={t('documentsPage.gridView')}
                 className={listToggleClass(viewMode === 'grid')}
                 onClick={() => setViewMode('grid')}
               >
@@ -396,7 +393,7 @@ export function Documents() {
                 className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-600 bg-zinc-800 px-3 py-2 text-zinc-200 hover:bg-zinc-800"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Back
+                {t('documentsPage.back')}
               </button>
             ) : null}
           </div>
@@ -408,7 +405,7 @@ export function Documents() {
           <div className="rounded-2xl border border-zinc-200/80 bg-white p-0 shadow-sm overflow-hidden">
             {foldersLoading ? (
               <div className="px-5 py-8">
-                <LoadingState label="Loading…" />
+                <LoadingState label={t('common.loading')} />
               </div>
             ) : foldersError ? (
               <div className="px-5 py-4">
@@ -417,12 +414,12 @@ export function Documents() {
             ) : showEmpty ? (
               <p className="px-5 py-8 text-sm text-zinc-500">
                 {currentFolderId == null && folders.length === 0
-                  ? 'No folders yet. Use New Folder to get started.'
+                  ? t('documentsPage.noFoldersYet')
                   : currentFolderId != null &&
                     folders.length === 0 &&
                     documents.length === 0
-                    ? 'This folder is empty. Add subfolders or upload files.'
-                    : 'No items match your search.'}
+                    ? t('documentsPage.folderEmpty')
+                    : t('documentsPage.noItemsMatchSearch')}
               </p>
             ) : viewMode === 'list' ? (
               <ul className="divide-y divide-zinc-100">
@@ -441,11 +438,11 @@ export function Documents() {
                 {currentFolderId != null ? (
                   <>
                     <li className="border-t border-zinc-200 bg-zinc-50/50 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                      Files
+                      {t('documentsPage.files')}
                     </li>
                     {docsLoading ? (
                       <li className="px-5 py-6">
-                        <LoadingState label="Loading files…" />
+                        <LoadingState label={t('documentsPage.loadingFiles')} />
                       </li>
                     ) : docsError ? (
                       <li className="px-5 py-4">
@@ -455,7 +452,7 @@ export function Documents() {
                         />
                       </li>
                     ) : filteredDocuments.length === 0 ? (
-                      <li className="px-5 py-6 text-sm text-zinc-500">No files in this folder yet.</li>
+                      <li className="px-5 py-6 text-sm text-zinc-500">{t('documentsPage.noFilesInFolder')}</li>
                     ) : (
                       filteredDocuments.map((d) => (
                         <li key={d._id}>
@@ -469,7 +466,7 @@ export function Documents() {
                               <div className="truncate font-medium text-zinc-900">{d.name}</div>
                               <div className="text-xs text-zinc-500">
                                 {(d.fileType || '—').toUpperCase()} · {formatRelativeTime(d.createdAt)}
-                                {d.uploadedBy?.name ? ` · by ${d.uploadedBy.name}` : ''}
+                                {d.uploadedBy?.name ? ` · ${t('documentsPage.byUser', { name: d.uploadedBy.name })}` : ''}
                               </div>
                             </div>
                             <Eye className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden />
@@ -503,17 +500,17 @@ export function Documents() {
                 {currentFolderId != null ? (
                   <div className="mt-4 border-t border-zinc-100 pt-4">
                     <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                      Files
+                      {t('documentsPage.files')}
                     </p>
                     {docsLoading ? (
-                      <LoadingState label="Loading files…" />
+                      <LoadingState label={t('documentsPage.loadingFiles')} />
                     ) : docsError ? (
                       <ErrorBanner
                         message={docsError}
                         onRetry={() => loadDocuments(currentFolderId)}
                       />
                     ) : filteredDocuments.length === 0 ? (
-                      <p className="text-sm text-zinc-500">No files in this folder yet.</p>
+                      <p className="text-sm text-zinc-500">{t('documentsPage.noFilesInFolder')}</p>
                     ) : (
                       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         {filteredDocuments.map((d) => (
@@ -534,7 +531,7 @@ export function Documents() {
                               </div>
                               <span className="inline-flex items-center gap-1 text-sm font-medium text-blue-600">
                                 <Eye className="h-4 w-4" />
-                                Preview
+                                {t('documentsPage.preview')}
                               </span>
                             </button>
                           </li>
@@ -544,7 +541,7 @@ export function Documents() {
                   </div>
                 ) : null}
                 {currentFolderId == null && filteredFolders.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-zinc-500">No folders to show.</p>
+                  <p className="py-6 text-center text-sm text-zinc-500">{t('documentsPage.noFoldersToShow')}</p>
                 ) : null}
               </div>
             )}
@@ -552,7 +549,7 @@ export function Documents() {
 
           {currentFolderId == null && !foldersLoading && !foldersError ? (
             <p className="mt-4 text-center text-sm text-zinc-500">
-              Open a folder to view files and upload.
+              {t('documentsPage.openFolderHint')}
             </p>
           ) : null}
         </div>
@@ -560,7 +557,8 @@ export function Documents() {
 
       <FolderModal
         open={folderModalOpen}
-        title="New folder"
+        title={t('documentsPage.newFolder')}
+        closeLabel={t('common.close')}
         onClose={() => {
           if (creatingFolder) return
           setFolderModalOpen(false)
@@ -571,16 +569,16 @@ export function Documents() {
         <form onSubmit={handleCreateFolder} className="space-y-4">
           <p className="text-sm text-zinc-500">
             {currentFolderId == null
-              ? 'Create a folder at the top level.'
-              : `Inside “${pathStack[pathStack.length - 1]?.name}”.`}
+              ? t('documentsPage.createTopLevelFolder')
+              : t('documentsPage.insideFolder', { name: pathStack[pathStack.length - 1]?.name })}
           </p>
           <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-zinc-700">Name</span>
+            <span className="mb-1.5 block text-sm font-medium text-zinc-700">{t('documentsPage.name')}</span>
             <input
               type="text"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="Folder name"
+              placeholder={t('documentsPage.folderNamePlaceholder')}
               className="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               disabled={creatingFolder}
               autoFocus
@@ -598,7 +596,7 @@ export function Documents() {
                 setNewFolderName('')
               }}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -606,7 +604,7 @@ export function Documents() {
               disabled={creatingFolder}
             >
               <Plus className="h-4 w-4" />
-              {creatingFolder ? 'Creating…' : 'Create'}
+              {creatingFolder ? t('documentsPage.creating') : t('common.create')}
             </button>
           </div>
         </form>

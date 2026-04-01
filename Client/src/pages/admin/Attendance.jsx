@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Calendar, Loader2, ShieldCheck } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { getClasses } from '../../services/classService.js'
 import { getAttendanceByDate, markAttendance, setAttendancePublishedForDate } from '../../services/attendance.service.js'
 
@@ -17,6 +18,7 @@ function dateInputValue(d = new Date()) {
 }
 
 export default function AdminAttendance() {
+  const { t } = useTranslation()
   const [classes, setClasses] = useState([])
   const [classesLoading, setClassesLoading] = useState(true)
   const [classId, setClassId] = useState('')
@@ -51,7 +53,7 @@ export default function AdminAttendance() {
       const data = await getAttendanceByDate(dateStr, classId || undefined)
       setStudents(Array.isArray(data?.students) ? data.students : [])
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Could not load attendance')
+      setError(e?.response?.data?.error || e?.message || t('adminAttendance.loadFailed'))
       setStudents([])
     } finally {
       setLoading(false)
@@ -118,7 +120,7 @@ export default function AdminAttendance() {
       setStudents((prevRows) =>
         prevRows.map((r) => (String(r.studentId) === String(studentId) ? { ...r, status: prevStatus } : r)),
       )
-      setActionError(e?.response?.data?.error || e?.message || 'Save failed')
+      setActionError(e?.response?.data?.error || e?.message || t('adminAttendance.saveFailed'))
     } finally {
       setSavingStudentId(null)
     }
@@ -139,7 +141,7 @@ export default function AdminAttendance() {
       })
       await loadAttendance()
     } catch (e) {
-      setActionError(e?.response?.data?.error || e?.message || 'Publish failed')
+      setActionError(e?.response?.data?.error || e?.message || t('adminAttendance.publishFailed'))
     } finally {
       setPublishing(false)
     }
@@ -151,14 +153,14 @@ export default function AdminAttendance() {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
             <Calendar className="w-7 h-7 text-primary" />
-            Attendance
+            {t('common.attendance')}
           </h1>
-          <p className="text-muted-foreground mt-1">Mark attendance for a class and publish official results.</p>
+          <p className="text-muted-foreground mt-1">{t('adminAttendance.subtitle')}</p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>Class</span>
+            <span>{t('common.classes')}</span>
             <select
               value={classId}
               disabled={classesLoading}
@@ -174,7 +176,7 @@ export default function AdminAttendance() {
           </label>
 
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>Date</span>
+            <span>{t('adminAttendance.date')}</span>
             <input
               type="date"
               value={dateStr}
@@ -190,7 +192,7 @@ export default function AdminAttendance() {
             className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-60"
           >
             {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-            {publishedAny ? 'Unpublish' : 'Publish'}
+            {publishedAny ? t('adminAttendance.unpublish') : t('adminAttendance.publish')}
           </button>
         </div>
       </div>
@@ -200,25 +202,25 @@ export default function AdminAttendance() {
 
       <div className="rounded-3xl border border-border bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          Totals (marked only) · <span className="text-foreground font-medium">{dateStr}</span>
+          {t('adminAttendance.totalsMarkedOnly')} · <span className="text-foreground font-medium">{dateStr}</span>
         </div>
         <div className="mt-3 flex flex-wrap gap-3 text-sm">
-          <span className="rounded-full px-3 py-1 bg-emerald-500/15 text-emerald-800">PRESENT: {totals.PRESENT}</span>
-          <span className="rounded-full px-3 py-1 bg-destructive/10 text-destructive">ABSENT: {totals.ABSENT}</span>
-          <span className="rounded-full px-3 py-1 bg-amber-500/15 text-amber-800">LATE: {totals.LATE}</span>
-          <span className="rounded-full px-3 py-1 bg-primary/10 text-primary">EXCUSED: {totals.EXCUSED}</span>
+          <span className="rounded-full px-3 py-1 bg-emerald-500/15 text-emerald-800">{t('adminAttendance.present')}: {totals.PRESENT}</span>
+          <span className="rounded-full px-3 py-1 bg-destructive/10 text-destructive">{t('adminAttendance.absent')}: {totals.ABSENT}</span>
+          <span className="rounded-full px-3 py-1 bg-amber-500/15 text-amber-800">{t('adminAttendance.late')}: {totals.LATE}</span>
+          <span className="rounded-full px-3 py-1 bg-primary/10 text-primary">{t('adminAttendance.excused')}: {totals.EXCUSED}</span>
         </div>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin" />
-          Loading attendance…
+          {t('adminAttendance.loading')}
         </div>
       ) : (
         <div className="grid gap-4">
           {students.map((row) => {
-            const studentName = row?.student?.name ?? 'Student'
+            const studentName = row?.student?.name ?? t('common.student')
             const sid = row?.studentId
             const disabled = savingStudentId != null && String(savingStudentId) !== String(sid)
 
@@ -228,7 +230,7 @@ export default function AdminAttendance() {
                   <div className="min-w-0">
                     <div className="font-semibold truncate">{studentName}</div>
                     {row?.student?.classId ? (
-                      <div className="text-sm text-muted-foreground truncate mt-1">Class: {row.student.classId?.name ?? '—'}</div>
+                      <div className="text-sm text-muted-foreground truncate mt-1">{t('adminAttendance.classLabel')}: {row.student.classId?.name ?? t('common.none')}</div>
                     ) : null}
                   </div>
 
@@ -272,7 +274,7 @@ export default function AdminAttendance() {
 
           {students.length === 0 ? (
             <div className="rounded-3xl border border-border bg-white p-10 text-center text-muted-foreground">
-              No attendance records yet for this date. Mark students to begin.
+              {t('adminAttendance.noRecordsForDate')}
             </div>
           ) : null}
         </div>

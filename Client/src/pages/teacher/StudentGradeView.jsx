@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Navigate, useParams } from 'react-router-dom'
-import { Sidebar } from '../components/Sidebar.jsx'
-import { useAuth } from '../hooks/useAuth.js'
-import { LoadingState } from '../components/LoadingState.jsx'
-import { ErrorBanner } from '../components/ErrorBanner.jsx'
-import { getStudentGrades } from '../services/grade.service.js'
-import { homePathForRole } from '../utils/authPaths.js'
+import { Navigate, useParams, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { Sidebar } from '../../components/Sidebar.jsx'
+import { useAuth } from '../../hooks/useAuth.js'
+import { LoadingState } from '../../components/LoadingState.jsx'
+import { ErrorBanner } from '../../components/ErrorBanner.jsx'
+import { getStudentGrades } from '../../services/grade.service.js'
+import { homePathForRole } from '../../utils/authPaths.js'
+import { ArrowLeft } from 'lucide-react'
 
 function formatNumberOrDash(v, digits = 2) {
   const n = Number(v)
@@ -14,13 +16,12 @@ function formatNumberOrDash(v, digits = 2) {
 }
 
 export function StudentGradeView() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const { studentId } = useParams()
-
-  if (user?.role && user.role !== 'parent') {
-    return <Navigate to={homePathForRole(user.role)} replace />
-  }
-
+  const isAdmin = user?.role === 'admin'
+  const isParent = user?.role === 'parent'
+  const backHref = isAdmin ? '/admin/classes' : isParent ? '/parent-dashboard' : '/classes'
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [data, setData] = useState(null)
@@ -32,7 +33,7 @@ export function StudentGradeView() {
       const d = await getStudentGrades(studentId)
       setData(d)
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Could not load grades')
+      setError(e?.response?.data?.error || e?.message || t('teacherStudentGrades.loadFailed'))
       setData(null)
     } finally {
       setLoading(false)
@@ -49,7 +50,7 @@ export function StudentGradeView() {
         <Sidebar />
         <div className="flex-1 overflow-auto">
           <div className="p-4 md:p-8 max-w-7xl mx-auto">
-            <LoadingState label="Loading student grades…" />
+            <LoadingState label={t('teacherStudentGrades.loading')} />
           </div>
         </div>
       </div>
@@ -69,7 +70,7 @@ export function StudentGradeView() {
     )
   }
 
-  const studentName = data?.student?.name ?? 'Student'
+  const studentName = data?.student?.name ?? t('common.student')
   const weightedAverage = data?.weightedAverage
   const grades = data?.grades ?? []
 
@@ -78,30 +79,37 @@ export function StudentGradeView() {
       <Sidebar />
       <div className="flex-1 overflow-auto">
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
+          <Link
+            to={backHref}
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            {isAdmin ? t('teacherStudentGrades.backToClasses') : isParent ? t('teacherStudentGrades.backToDashboard') : t('teacherStudentGrades.backToClasses')}
+          </Link>
           <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">Student Grades</h1>
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">{t('teacherStudentGrades.title')}</h1>
             <p className="text-muted-foreground">
-              {studentName} - visible grades are shown only after your teacher clicks “Show”.
+              {t('teacherStudentGrades.subtitle', { studentName })}
             </p>
           </div>
 
           <div className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm mb-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <div className="text-sm text-muted-foreground">Weighted Average</div>
+                <div className="text-sm text-muted-foreground">{t('teacherStudentGrades.weightedAverage')}</div>
                 <div className="text-3xl font-bold text-primary tabular-nums">
-                  {weightedAverage == null ? '—' : formatNumberOrDash(weightedAverage, 2)}
+                  {weightedAverage == null ? t('common.none') : formatNumberOrDash(weightedAverage, 2)}
                 </div>
               </div>
               <div className="text-sm text-muted-foreground">
-                {grades.length ? `${grades.length} grade(s) visible` : 'No grades are visible yet'}
+                {grades.length ? t('teacherStudentGrades.visibleGradesCount', { count: grades.length }) : t('teacherStudentGrades.noGradesVisible')}
               </div>
             </div>
           </div>
 
           {grades.length ? (
             <div className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm">
-              <h2 className="font-semibold text-lg mb-3">Visible Grades</h2>
+              <h2 className="font-semibold text-lg mb-3">{t('teacherStudentGrades.visibleGrades')}</h2>
               <div className="space-y-3">
                 {grades
                   .slice()
@@ -110,9 +118,9 @@ export function StudentGradeView() {
                     <div key={g._id} className="rounded-2xl border border-border/60 bg-background p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <div className="font-semibold">{g?.type?.name ?? 'Grade'}</div>
+                          <div className="font-semibold">{g?.type?.name ?? t('teacherStudentGrades.grade')}</div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            Weight: {formatNumberOrDash(g?.type?.weight, 2)}
+                            {t('teacherStudentGrades.weight')}: {formatNumberOrDash(g?.type?.weight, 2)}
                           </div>
                         </div>
                         <div className="text-right">
@@ -120,7 +128,7 @@ export function StudentGradeView() {
                             {formatNumberOrDash(g?.score, 0)}
                           </div>
                           <div className="text-xs text-secondary font-medium mt-1">
-                            Visible
+                            {t('teacherStudentGrades.visible')}
                           </div>
                         </div>
                       </div>
@@ -130,9 +138,9 @@ export function StudentGradeView() {
             </div>
           ) : (
             <div className="bg-white rounded-3xl border border-border p-5 md:p-6 shadow-sm text-muted-foreground">
-              <p className="font-medium text-foreground">Grades aren’t available yet.</p>
+              <p className="font-medium text-foreground">{t('teacherStudentGrades.noGradesTitle')}</p>
               <p className="mt-1 text-sm">
-                Your teacher will show grades to parents when they are ready.
+                {t('teacherStudentGrades.noGradesDescription')}
               </p>
             </div>
           )}

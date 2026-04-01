@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Save } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { fetchAdminSettings, updateAdminSettings } from '../../services/adminService.js'
 import { toastError, toastSuccess } from '../../components/ui/toast.js'
+import { getUiErrorMessage } from '../../utils/errorMessages.js'
 
 const DEFAULT_FORM = {
   gpaScale: '4',
@@ -11,6 +13,7 @@ const DEFAULT_FORM = {
 }
 
 export default function AdminSettings() {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -41,7 +44,7 @@ export default function AdminSettings() {
         })
       } catch (e) {
         if (!cancelled) {
-          const message = e?.response?.data?.error || e?.message || 'Failed to load settings'
+          const message = getUiErrorMessage(e, 'adminSettings.errors.loadFailed')
           setError(message)
           toastError(message)
         }
@@ -66,7 +69,7 @@ export default function AdminSettings() {
     const finalWeight = Number(form.finalWeight)
 
     if (!Number.isFinite(gpaScale) || gpaScale <= 0) {
-      const message = 'GPA scale must be a number greater than 0'
+      const message = t('adminSettings.errors.gpaInvalid')
       setError(message)
       toastError(message)
       return
@@ -74,7 +77,7 @@ export default function AdminSettings() {
 
     const weights = [homeworkWeight, midtermWeight, finalWeight]
     if (weights.some((value) => !Number.isFinite(value) || value < 0)) {
-      const message = 'All weight fields must be valid numbers from 0 to 100'
+      const message = t('adminSettings.errors.weightsInvalid')
       setError(message)
       toastError(message)
       return
@@ -82,7 +85,7 @@ export default function AdminSettings() {
 
     const totalWeight = homeworkWeight + midtermWeight + finalWeight
     if (Math.abs(totalWeight - 100) > 0.0001) {
-      const message = 'Homework, Midterm, and Final weights must total 100%'
+      const message = t('adminSettings.errors.weightsTotal')
       setError(message)
       toastError(message)
       return
@@ -100,9 +103,9 @@ export default function AdminSettings() {
           },
         },
       })
-      toastSuccess('Saved successfully')
+      toastSuccess(t('adminSettings.savedSuccessfully'))
     } catch (e) {
-      const message = e?.response?.data?.error || e?.message || 'Save failed'
+      const message = getUiErrorMessage(e, 'adminSettings.errors.saveFailed')
       setError(message)
       toastError(message)
     } finally {
@@ -115,8 +118,8 @@ export default function AdminSettings() {
       <div className="sticky top-0 z-20 -mx-4 border-b border-border bg-background/95 px-4 py-4 backdrop-blur md:-mx-8 md:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">System Settings</h1>
-            <p className="text-muted-foreground mt-1">Manage grading rules and platform-level academic configuration.</p>
+            <h1 className="text-2xl md:text-3xl font-bold">{t('adminSettings.title')}</h1>
+            <p className="text-muted-foreground mt-1">{t('adminSettings.subtitle')}</p>
           </div>
           <button
             type="button"
@@ -125,7 +128,7 @@ export default function AdminSettings() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 disabled:opacity-60 w-fit"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('adminSettings.saving') : t('common.save')}
           </button>
         </div>
       </div>
@@ -135,18 +138,18 @@ export default function AdminSettings() {
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-5">
         <div className="bg-white rounded-3xl border border-border p-5 shadow-sm">
           <div>
-            <h2 className="text-lg font-semibold">System Configuration</h2>
+            <h2 className="text-lg font-semibold">{t('adminSettings.systemConfiguration')}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Configure grading behavior using clear fields instead of raw JSON.
+              {t('adminSettings.configurationHelp')}
             </p>
           </div>
 
           {loading ? (
-            <div className="py-10 text-center text-muted-foreground">Loading…</div>
+            <div className="py-10 text-center text-muted-foreground">{t('adminSettings.loading')}</div>
           ) : (
             <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
               <label className="block">
-                <span className="text-sm font-medium">GPA Scale</span>
+                <span className="text-sm font-medium">{t('adminSettings.gpaScale')}</span>
                 <input
                   type="number"
                   min="1"
@@ -157,11 +160,11 @@ export default function AdminSettings() {
                 />
               </label>
               <div className="rounded-2xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
-                Define the GPA ceiling used for grade summaries and analytics.
+                {t('adminSettings.gpaHelp')}
               </div>
 
               <label className="block">
-                <span className="text-sm font-medium">Homework Weight (%)</span>
+                <span className="text-sm font-medium">{t('adminSettings.homeworkWeight')}</span>
                 <input
                   type="number"
                   min="0"
@@ -173,7 +176,7 @@ export default function AdminSettings() {
                 />
               </label>
               <label className="block">
-                <span className="text-sm font-medium">Midterm Weight (%)</span>
+                <span className="text-sm font-medium">{t('adminSettings.midtermWeight')}</span>
                 <input
                   type="number"
                   min="0"
@@ -185,7 +188,7 @@ export default function AdminSettings() {
                 />
               </label>
               <label className="block">
-                <span className="text-sm font-medium">Final Weight (%)</span>
+                <span className="text-sm font-medium">{t('adminSettings.finalWeight')}</span>
                 <input
                   type="number"
                   min="0"
@@ -197,12 +200,12 @@ export default function AdminSettings() {
                 />
               </label>
               <div className="rounded-2xl border border-border bg-background px-4 py-3">
-                <p className="text-sm font-medium">Validation</p>
+                <p className="text-sm font-medium">{t('adminSettings.validation')}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Total weight: {Number(form.homeworkWeight || 0) + Number(form.midtermWeight || 0) + Number(form.finalWeight || 0)}%
+                  {t('adminSettings.totalWeight', { value: Number(form.homeworkWeight || 0) + Number(form.midtermWeight || 0) + Number(form.finalWeight || 0) })}
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  The three weight fields should add up to exactly 100%.
+                  {t('adminSettings.totalWeightHelp')}
                 </p>
               </div>
             </div>
@@ -210,34 +213,34 @@ export default function AdminSettings() {
         </div>
 
         <div className="bg-white rounded-3xl border border-border p-5 shadow-sm">
-          <h2 className="text-lg font-semibold">Preview</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Quick view of common values inside your JSON config.</p>
+          <h2 className="text-lg font-semibold">{t('adminSettings.preview')}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t('adminSettings.previewHelp')}</p>
           <div className="mt-5 space-y-4">
             <div className="rounded-2xl border border-border bg-background px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">GPA Scale</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('adminSettings.gpaScale')}</p>
               <p className="mt-1 text-lg font-semibold">{form.gpaScale || '—'}</p>
             </div>
             <div className="rounded-2xl border border-border bg-background px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Weight Config</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('adminSettings.weightConfig')}</p>
               <div className="mt-2 space-y-2 text-sm">
                 <div className="flex items-center justify-between gap-3">
-                  <span>Homework</span>
+                  <span>{t('common.homework')}</span>
                   <span className="font-medium">{form.homeworkWeight || '—'}%</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span>Midterm</span>
+                  <span>{t('adminSettings.midtermWeight')}</span>
                   <span className="font-medium">{form.midtermWeight || '—'}%</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span>Final</span>
+                  <span>{t('adminSettings.finalWeight')}</span>
                   <span className="font-medium">{form.finalWeight || '—'}%</span>
                 </div>
               </div>
             </div>
             <div className="rounded-2xl border border-border bg-background px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">How it works</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">{t('adminSettings.howItWorks')}</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                These values are saved as grading rules for the system, but users only interact with simple numeric fields here.
+                {t('adminSettings.howItWorksHelp')}
               </p>
             </div>
           </div>

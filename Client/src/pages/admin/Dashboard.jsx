@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ResponsiveContainer, BarChart, Bar, Cell, CartesianGrid, Tooltip, XAxis, YAxis, LineChart, Line } from 'recharts'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import {
   Users,
   School,
@@ -12,6 +13,7 @@ import {
   FolderOpen,
 } from 'lucide-react'
 import { fetchAdminDashboard, fetchAdminInsights } from '../../services/adminService.js'
+import { getUiErrorMessage } from '../../utils/errorMessages.js'
 
 const CHART_COLORS = {
   passed: '#22c55e',
@@ -21,6 +23,7 @@ const CHART_COLORS = {
 }
 
 export default function AdminDashboard() {
+  const { t } = useTranslation()
   const [data, setData] = useState(null)
   const [insights, setInsights] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -38,7 +41,7 @@ export default function AdminDashboard() {
           setInsights(i)
         }
       } catch (e) {
-        if (!cancelled) setError(e?.response?.data?.error || e?.message || 'Failed to load dashboard')
+        if (!cancelled) setError(getUiErrorMessage(e, 'adminDashboard.loadFailed'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -73,19 +76,19 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6">
       <div className="mb-2">
-        <h1 className="text-2xl md:text-3xl font-bold">Principal Dashboard</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">{t('adminDashboard.title')}</h1>
         <p className="text-muted-foreground mt-1">
-          School KPIs, grade/attendance analytics, and recent activities.
+          {t('adminDashboard.subtitle')}
         </p>
       </div>
 
       {loading ? (
         <div className="rounded-3xl border border-border bg-white p-12 text-center text-muted-foreground shadow-lg">
-          Loading admin dashboard…
+          {t('adminDashboard.loading')}
         </div>
       ) : error ? (
         <div className="rounded-3xl border border-destructive/30 bg-destructive/5 p-6 text-destructive">
-          <p className="font-medium">Could not load dashboard</p>
+          <p className="font-medium">{t('adminDashboard.loadFailed')}</p>
           <p className="text-sm mt-1">{error}</p>
         </div>
       ) : null}
@@ -104,7 +107,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <p className="text-3xl font-bold tabular-nums">{data?.totalStudents ?? 0}</p>
-              <p className="text-sm text-muted-foreground mt-1">Total students</p>
+              <p className="text-sm text-muted-foreground mt-1">{t('adminDashboard.totalStudents')}</p>
             </motion.div>
 
             <motion.div
@@ -119,7 +122,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <p className="text-3xl font-bold tabular-nums">{data?.totalClasses ?? 0}</p>
-              <p className="text-sm text-muted-foreground mt-1">Classes</p>
+              <p className="text-sm text-muted-foreground mt-1">{t('adminDashboard.classes')}</p>
             </motion.div>
 
             <motion.div
@@ -134,7 +137,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <p className="text-3xl font-bold tabular-nums">{data?.totalTeachers ?? 0}</p>
-              <p className="text-sm text-muted-foreground mt-1">Teachers</p>
+              <p className="text-sm text-muted-foreground mt-1">{t('adminDashboard.teachers')}</p>
             </motion.div>
 
             <motion.div
@@ -149,7 +152,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <p className="text-3xl font-bold tabular-nums">{attendanceRatePct ?? '—'}</p>
-              <p className="text-sm text-muted-foreground mt-1">Attendance rate</p>
+              <p className="text-sm text-muted-foreground mt-1">{t('adminDashboard.attendanceRate')}</p>
             </motion.div>
 
             <motion.div
@@ -166,7 +169,7 @@ export default function AdminDashboard() {
               <p className="text-3xl font-bold tabular-nums">
                 {avgGpa != null ? Math.round(Number(avgGpa) * 100) / 100 : '—'}
               </p>
-              <p className="text-sm text-muted-foreground mt-1">Average GPA per class</p>
+              <p className="text-sm text-muted-foreground mt-1">{t('adminDashboard.averageGpaPerClass')}</p>
             </motion.div>
           </div>
 
@@ -179,7 +182,7 @@ export default function AdminDashboard() {
             >
               <div className="flex items-center gap-2 mb-4">
                 <ClipboardCheck className="w-5 h-5 text-primary" />
-                <h2 className="font-semibold">Grade distribution</h2>
+                <h2 className="font-semibold">{t('adminDashboard.gradeDistribution')}</h2>
               </div>
               {gradeDistribution.length ? (
                 <div className="h-64 w-full">
@@ -207,7 +210,7 @@ export default function AdminDashboard() {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No grade distribution data.</p>
+                <p className="text-sm text-muted-foreground">{t('adminDashboard.noGradeDistribution')}</p>
               )}
             </motion.div>
 
@@ -219,7 +222,7 @@ export default function AdminDashboard() {
             >
               <div className="flex items-center gap-2 mb-4">
                 <CalendarDays className="w-5 h-5 text-primary" />
-                <h2 className="font-semibold">Attendance trends</h2>
+                <h2 className="font-semibold">{t('adminDashboard.attendanceTrends')}</h2>
               </div>
               {attendanceTrend.length ? (
                 <div className="h-64 w-full">
@@ -234,7 +237,7 @@ export default function AdminDashboard() {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No attendance trend data.</p>
+                <p className="text-sm text-muted-foreground">{t('adminDashboard.noAttendanceTrend')}</p>
               )}
             </motion.div>
           </div>
@@ -247,7 +250,7 @@ export default function AdminDashboard() {
           >
             <div className="flex items-center gap-2 mb-4">
               <Activity className="w-5 h-5 text-primary" />
-              <h2 className="font-semibold">Recent activities</h2>
+              <h2 className="font-semibold">{t('adminDashboard.recentActivities')}</h2>
             </div>
 
             {recentActivities.length ? (
@@ -268,7 +271,7 @@ export default function AdminDashboard() {
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <span className="font-medium">
                             {a.payload?.student?.name
-                              ? `Grade · ${a.payload.student.name}`
+                              ? t('adminDashboard.gradeForStudent', { name: a.payload.student.name })
                               : a.payload?.title
                                 ? a.payload.title
                                 : a.payload?.name
@@ -276,7 +279,7 @@ export default function AdminDashboard() {
                                   : a.type}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {a.createdAt ? new Date(a.createdAt).toLocaleString() : '—'}
+                            {a.createdAt ? new Date(a.createdAt).toLocaleString() : t('common.none')}
                           </span>
                         </div>
                         {a.payload?.subject?.name ? (
@@ -286,7 +289,7 @@ export default function AdminDashboard() {
                         ) : null}
                         {a.payload?.score != null ? (
                           <div className="text-sm text-primary font-medium mt-1">
-                            Score: {a.payload.score}
+                            {t('adminDashboard.score', { value: a.payload.score })}
                           </div>
                         ) : null}
                       </div>
@@ -295,7 +298,7 @@ export default function AdminDashboard() {
                 })}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">No recent activities.</p>
+              <p className="text-sm text-muted-foreground">{t('adminDashboard.noRecentActivities')}</p>
             )}
           </motion.div>
 
@@ -308,52 +311,52 @@ export default function AdminDashboard() {
             >
               <div className="flex items-center gap-2 mb-4">
                 <Activity className="w-5 h-5 text-primary" />
-                <h2 className="font-semibold">Smart alerts</h2>
+                <h2 className="font-semibold">{t('adminDashboard.smartAlerts')}</h2>
               </div>
               <div className="grid lg:grid-cols-3 gap-4">
                 <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                  <p className="text-sm font-semibold mb-2">At-risk students</p>
+                  <p className="text-sm font-semibold mb-2">{t('adminDashboard.atRiskStudents')}</p>
                   {atRiskStudents.length ? (
                     <ul className="space-y-2">
                       {atRiskStudents.slice(0, 5).map((r) => (
                         <li key={r.student?._id ?? r.student?.id} className="text-sm">
-                          <span className="font-medium">{r.student?.name ?? '—'}</span>{' '}
-                          <span className="text-muted-foreground">Abs: {r.absentCount} · Late: {r.lateCount}</span>
+                          <span className="font-medium">{r.student?.name ?? t('common.none')}</span>{' '}
+                          <span className="text-muted-foreground">{t('adminDashboard.absLate', { absent: r.absentCount, late: r.lateCount })}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No alerts.</p>
+                    <p className="text-sm text-muted-foreground">{t('adminDashboard.noAlerts')}</p>
                   )}
                 </div>
                 <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                  <p className="text-sm font-semibold mb-2">Missing grades</p>
+                  <p className="text-sm font-semibold mb-2">{t('adminDashboard.missingGrades')}</p>
                   {missingGrades.length ? (
                     <ul className="space-y-2">
                       {missingGrades.slice(0, 5).map((r) => (
                         <li key={r.student?._id ?? r.student?.id} className="text-sm">
-                          <span className="font-medium">{r.student?.name ?? '—'}</span>{' '}
-                          <span className="text-muted-foreground">Missing: {r.missingCount}</span>
+                          <span className="font-medium">{r.student?.name ?? t('common.none')}</span>{' '}
+                          <span className="text-muted-foreground">{t('adminDashboard.missingCount', { count: r.missingCount })}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No alerts.</p>
+                    <p className="text-sm text-muted-foreground">{t('adminDashboard.noAlerts')}</p>
                   )}
                 </div>
                 <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                  <p className="text-sm font-semibold mb-2">Late submissions</p>
+                  <p className="text-sm font-semibold mb-2">{t('adminDashboard.lateSubmissions')}</p>
                   {lateSubmissions.length ? (
                     <ul className="space-y-2">
                       {lateSubmissions.slice(0, 5).map((h) => (
                         <li key={h._id} className="text-sm">
-                          <span className="font-medium">{h.title ?? 'Homework'}</span>{' '}
-                          <span className="text-muted-foreground">· {h.class?.name ?? '—'}</span>
+                          <span className="font-medium">{h.title ?? t('common.homework')}</span>{' '}
+                          <span className="text-muted-foreground">· {h.class?.name ?? t('common.none')}</span>
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No alerts.</p>
+                    <p className="text-sm text-muted-foreground">{t('adminDashboard.noAlerts')}</p>
                   )}
                 </div>
               </div>

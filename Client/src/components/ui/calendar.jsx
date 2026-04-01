@@ -2,8 +2,8 @@
 import { jsx } from "react/jsx-runtime";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
-import { cn } from "./utils";
-import { buttonVariants } from "./button";
+import { cn } from "./utils.js";
+import { buttonVariants } from "./button.jsx";
 function Calendar({
   className,
   classNames,

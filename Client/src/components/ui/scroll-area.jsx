@@ -1,7 +1,7 @@
 "use client";
 import { jsx, jsxs } from "react/jsx-runtime";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
-import { cn } from "./utils";
+import { cn } from "./utils.js";
 function ScrollArea({
   className,
   children,

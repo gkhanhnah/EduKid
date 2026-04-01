@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Sidebar } from '../components/Sidebar.jsx'
-import { games } from '../data/mockData.js'
+import { useTranslation } from 'react-i18next'
+import { Sidebar } from '../../components/Sidebar.jsx'
+import { games } from '../../data/mockData.js'
 import { Trophy, Clock, Star } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { getMyGameProgress } from '../services/api.js'
+import { getMyGameProgress } from '../../services/api.js'
 
-function getDifficultyStyle(difficulty) {
+function getDifficultyStyle(difficulty, t) {
   switch (difficulty) {
     case 'easy':
-      return { bg: 'bg-secondary/10', text: 'text-secondary', label: 'Easy' }
+      return { bg: 'bg-secondary/10', text: 'text-secondary', label: t('teacherGames.easy') }
     case 'medium':
-      return { bg: 'bg-[#F59E0B]/10', text: 'text-[#F59E0B]', label: 'Medium' }
+      return { bg: 'bg-[#F59E0B]/10', text: 'text-[#F59E0B]', label: t('teacherGames.medium') }
     case 'hard':
-      return { bg: 'bg-destructive/10', text: 'text-destructive', label: 'Hard' }
+      return { bg: 'bg-destructive/10', text: 'text-destructive', label: t('teacherGames.hard') }
     default:
       return { bg: 'bg-muted', text: 'text-foreground', label: difficulty }
   }
@@ -24,6 +25,7 @@ function titleForGameId(id) {
 }
 
 export function Games() {
+  const { t } = useTranslation()
   const [recentProgress, setRecentProgress] = useState([])
   const [progressLoading, setProgressLoading] = useState(true)
 
@@ -61,9 +63,9 @@ export function Games() {
       <div className="flex-1 overflow-auto">
         <div className="p-4 md:p-8 max-w-7xl mx-auto">
           <div className="mb-8">
-            <h1 className="mb-2">Game-Based Learning</h1>
+            <h1 className="mb-2">{t('teacherGames.title')}</h1>
             <p className="text-[1.125rem] text-muted-foreground">
-              Fun and educational games for Grade 1 students
+              {t('teacherGames.subtitle')}
             </p>
           </div>
 
@@ -79,7 +81,7 @@ export function Games() {
                 </div>
                 <div>
                   <h3 className="text-[2rem] mb-1">{games.length}</h3>
-                  <p className="text-[0.9375rem] text-muted-foreground">Available Games</p>
+                  <p className="text-[0.9375rem] text-muted-foreground">{t('teacherGames.availableGames')}</p>
                 </div>
               </div>
             </motion.div>
@@ -95,7 +97,7 @@ export function Games() {
                 </div>
                 <div>
                   <h3 className="text-[2rem] mb-1">{completedCount}</h3>
-                  <p className="text-[0.9375rem] text-muted-foreground">Sessions logged</p>
+                  <p className="text-[0.9375rem] text-muted-foreground">{t('teacherGames.sessionsLogged')}</p>
                 </div>
               </div>
             </motion.div>
@@ -111,7 +113,7 @@ export function Games() {
                 </div>
                 <div>
                   <h3 className="text-[2rem] mb-1">{hoursLabel}</h3>
-                  <p className="text-[0.9375rem] text-muted-foreground">Your play time</p>
+                  <p className="text-[0.9375rem] text-muted-foreground">{t('teacherGames.playTime')}</p>
                 </div>
               </div>
             </motion.div>
@@ -119,7 +121,7 @@ export function Games() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {games.map((game, index) => {
-              const difficultyStyle = getDifficultyStyle(game.difficulty)
+              const difficultyStyle = getDifficultyStyle(game.difficulty, t)
               return (
                 <motion.div
                   key={game.id}
@@ -153,7 +155,7 @@ export function Games() {
                         className="w-full py-4 rounded-2xl text-white shadow-lg hover:shadow-xl transition-all"
                         style={{ backgroundColor: game.color }}
                       >
-                        Start Game
+                        {t('teacherGames.startGame')}
                       </button>
                     </Link>
                   </div>
@@ -163,12 +165,12 @@ export function Games() {
           </div>
 
           <div className="mt-8 bg-white rounded-3xl p-6 shadow-lg border border-border">
-            <h3 className="mb-4 font-semibold text-lg">Recent game activity</h3>
+            <h3 className="mb-4 font-semibold text-lg">{t('teacherGames.recentActivity')}</h3>
             {progressLoading ? (
-              <p className="text-sm text-muted-foreground py-4">Loading…</p>
+              <p className="text-sm text-muted-foreground py-4">{t('common.loading')}</p>
             ) : recentProgress.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4">
-                Finish a game to see your scores here.
+                {t('teacherGames.noRecentActivity')}
               </p>
             ) : (
               <div className="space-y-3">
@@ -188,7 +190,7 @@ export function Games() {
                         {titleForGameId(row.game)}
                       </p>
                       <p className="text-[0.875rem] text-muted-foreground">
-                        Score {row.score} · {row.durationSeconds ?? 0}s
+                        {t('teacherGames.scoreDuration', { score: row.score, seconds: row.durationSeconds ?? 0 })}
                       </p>
                     </div>
                     <div className="text-right text-xs text-muted-foreground shrink-0">

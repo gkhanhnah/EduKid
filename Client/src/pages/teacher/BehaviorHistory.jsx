@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Sidebar } from '../components/Sidebar.jsx'
+import { useTranslation } from 'react-i18next'
+import { Sidebar } from '../../components/Sidebar.jsx'
 import { Calendar, Filter } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { getBehaviors, getBehaviorStats } from '../services/behaviorService.js'
+import { getBehaviors, getBehaviorStats } from '../../services/behaviorService.js'
 
 function todayDateParam() {
   const d = new Date()
@@ -28,11 +29,11 @@ function normalizeUiType(apiType) {
 }
 
 const FILTER_CONFIG = [
-  { type: 'all', label: 'All', icon: '📋', color: 'bg-muted' },
-  { type: 'good', label: 'Good', icon: '👍', color: 'bg-secondary' },
-  { type: 'active', label: 'Active', icon: '⭐', color: 'bg-primary' },
-  { type: 'sleepy', label: 'Sleepy', icon: '😴', color: 'bg-[#F59E0B]' },
-  { type: 'bad', label: 'Bad', icon: '👎', color: 'bg-destructive' },
+  { type: 'all', key: 'all', icon: '📋', color: 'bg-muted' },
+  { type: 'good', key: 'good', icon: '👍', color: 'bg-secondary' },
+  { type: 'active', key: 'active', icon: '⭐', color: 'bg-primary' },
+  { type: 'sleepy', key: 'sleepy', icon: '😴', color: 'bg-[#F59E0B]' },
+  { type: 'bad', key: 'bad', icon: '👎', color: 'bg-destructive' },
 ]
 
 function getBehaviorStyle(uiType) {
@@ -56,6 +57,7 @@ function avatarForName(name) {
 }
 
 export function BehaviorHistory({ embedded = false }) {
+  const { t, i18n } = useTranslation()
   const [filterType, setFilterType] = useState('all')
   const [records, setRecords] = useState([])
   const [stats, setStats] = useState({ good: 0, bad: 0, active: 0, sleepy: 0 })
@@ -84,7 +86,7 @@ export function BehaviorHistory({ embedded = false }) {
         sleepy: statRow.sleepy ?? 0,
       })
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Failed to load behavior history')
+      setError(e?.response?.data?.error || e?.message || t('teacherBehaviorHistory.loadFailed'))
       setRecords([])
     } finally {
       setLoading(false)
@@ -106,9 +108,9 @@ export function BehaviorHistory({ embedded = false }) {
     <div className="p-4 md:p-8 max-w-7xl mx-auto">
       {!embedded && (
         <div className="mb-8">
-          <h1 className="mb-2">Behavior History</h1>
+          <h1 className="mb-2">{t('teacherBehaviorHistory.title')}</h1>
           <p className="text-[1.125rem] text-muted-foreground">
-            View and filter all behavior records for today ({dateStr})
+            {t('teacherBehaviorHistory.subtitle', { date: dateStr })}
           </p>
         </div>
       )}
@@ -121,7 +123,7 @@ export function BehaviorHistory({ embedded = false }) {
             onClick={load}
             className="text-sm underline shrink-0"
           >
-            Retry
+            {t('common.tryAgain')}
           </button>
         </div>
       ) : null}
@@ -129,7 +131,7 @@ export function BehaviorHistory({ embedded = false }) {
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-border mb-8">
         <div className="flex items-center gap-3 mb-4">
           <Filter className="w-5 h-5 text-primary" />
-          <h3>Filter by Type</h3>
+          <h3>{t('teacherBehaviorHistory.filterByType')}</h3>
         </div>
         <div className="flex flex-wrap gap-3">
           {FILTER_CONFIG.map((behavior) => (
@@ -144,7 +146,7 @@ export function BehaviorHistory({ embedded = false }) {
               }`}
             >
               <span className="text-[1.25rem] mr-2">{behavior.icon}</span>
-              {behavior.label}
+              {t(`teacherBehaviorHistory.types.${behavior.key}`)}
             </button>
           ))}
         </div>
@@ -153,7 +155,7 @@ export function BehaviorHistory({ embedded = false }) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {loading ? (
           <p className="col-span-full text-center text-muted-foreground py-8">
-            Loading stats…
+            {t('teacherBehaviorHistory.loadingStats')}
           </p>
         ) : (
           statCards.map((behavior, index) => {
@@ -176,7 +178,7 @@ export function BehaviorHistory({ embedded = false }) {
               >
                 <div className="text-[2rem] mb-2">{behavior.icon}</div>
                 <h3 className="text-[2rem] mb-1">{count}</h3>
-                <p className="text-[0.9375rem] text-muted-foreground">{behavior.label}</p>
+                <p className="text-[0.9375rem] text-muted-foreground">{t(`teacherBehaviorHistory.types.${behavior.key}`)}</p>
               </motion.div>
             )
           })
@@ -186,11 +188,11 @@ export function BehaviorHistory({ embedded = false }) {
       <div className="bg-white rounded-3xl p-6 shadow-lg border border-border">
         <div className="flex items-center gap-3 mb-6">
           <Calendar className="w-5 h-5 text-primary" />
-          <h3>Today&apos;s Records</h3>
+          <h3>{t('teacherBehaviorHistory.todayRecords')}</h3>
         </div>
 
         {loading ? (
-          <p className="text-center py-12 text-muted-foreground">Loading records…</p>
+          <p className="text-center py-12 text-muted-foreground">{t('teacherBehaviorHistory.loadingRecords')}</p>
         ) : (
           <>
             <div className="space-y-4">
@@ -203,20 +205,20 @@ export function BehaviorHistory({ embedded = false }) {
                   : record.date
                     ? new Date(record.date)
                     : new Date()
-                const timeLabel = ts.toLocaleTimeString('en-US', {
+                const timeLabel = ts.toLocaleTimeString(i18n.language === 'vi' ? 'vi-VN' : 'en-US', {
                   hour: 'numeric',
                   minute: '2-digit',
                   hour12: true,
                 })
                 const label =
                   uiType === 'good'
-                    ? 'Good'
+                    ? t('teacherBehaviorHistory.types.good')
                     : uiType === 'bad'
-                      ? 'Bad'
+                      ? t('teacherBehaviorHistory.types.bad')
                       : uiType === 'sleepy'
-                        ? 'Sleepy'
+                        ? t('teacherBehaviorHistory.types.sleepy')
                         : uiType === 'active'
-                          ? 'Active'
+                          ? t('teacherBehaviorHistory.types.active')
                           : String(record.type ?? '—')
 
                 return (
@@ -270,7 +272,7 @@ export function BehaviorHistory({ embedded = false }) {
               <div className="text-center py-12">
                 <div className="text-[4rem] mb-4">📭</div>
                 <p className="text-[1.125rem] text-muted-foreground">
-                  No records found for this filter
+                  {t('teacherBehaviorHistory.noRecordsForFilter')}
                 </p>
               </div>
             ) : null}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Sidebar } from '../components/Sidebar.jsx'
+import { useTranslation } from 'react-i18next'
+import { Sidebar } from '../../components/Sidebar.jsx'
 import {
   getClasses,
   createClass,
@@ -10,7 +11,7 @@ import {
   getPendingSubjectTeacherInvitations,
   acceptPendingSubjectTeacherInvitation,
   declinePendingSubjectTeacherInvitation,
-} from '../services/classService.js'
+} from '../../services/classService.js'
 import {
   Plus,
   Trash2,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react'
 
 export function ClassManagement() {
+  const { t } = useTranslation()
   const [classes, setClasses] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -47,7 +49,7 @@ export function ClassManagement() {
       const data = await getClasses()
       setClasses(Array.isArray(data) ? data : [])
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || 'Failed to load classes')
+      setError(e?.response?.data?.error || e?.message || t('teacherClassManagement.loadFailed'))
       setClasses([])
     } finally {
       setLoading(false)
@@ -79,7 +81,7 @@ export function ClassManagement() {
     e.preventDefault()
     setFormError('')
     if (!name.trim()) {
-      setFormError('Class name is required.')
+      setFormError(t('teacherClassManagement.classNameRequired'))
       return
     }
     setSubmitting(true)
@@ -101,19 +103,19 @@ export function ClassManagement() {
       setGrade('')
       setCreateOpen(false)
     } catch (e) {
-      setFormError(e?.response?.data?.error || e?.message || 'Could not create class')
+      setFormError(e?.response?.data?.error || e?.message || t('teacherClassManagement.createFailed'))
     } finally {
       setSubmitting(false)
     }
   }
 
   async function handleDelete(id) {
-    if (!window.confirm('Delete this class? It must have no students.')) return
+    if (!window.confirm(t('teacherClassManagement.deleteConfirm'))) return
     try {
       await deleteClass(id)
       setClasses((prev) => prev.filter((c) => String(c._id) !== String(id)))
     } catch (e) {
-      alert(e?.response?.data?.error || e?.message || 'Delete failed')
+      alert(e?.response?.data?.error || e?.message || t('teacherClassManagement.deleteFailed'))
     }
   }
 
@@ -121,7 +123,7 @@ export function ClassManagement() {
     e.preventDefault()
     setQuickErr('')
     if (!quickStudent.name.trim()) {
-      setQuickErr('Name is required')
+      setQuickErr(t('teacherClassManagement.nameRequired'))
       return
     }
     setQuickBusy(true)
@@ -136,7 +138,7 @@ export function ClassManagement() {
       setQuickClassId(null)
       load()
     } catch (err) {
-      setQuickErr(err?.response?.data?.error || err?.message || 'Failed')
+      setQuickErr(err?.response?.data?.error || err?.message || t('teacherClassManagement.actionFailed'))
     } finally {
       setQuickBusy(false)
     }
@@ -146,7 +148,7 @@ export function ClassManagement() {
     e.preventDefault()
     setQuickErr('')
     if (!quickTeacherId.trim()) {
-      setQuickErr('Teacher email required')
+      setQuickErr(t('teacherClassManagement.teacherEmailRequired'))
       return
     }
     setQuickBusy(true)
@@ -159,7 +161,7 @@ export function ClassManagement() {
       setQuickClassId(null)
       load()
     } catch (err) {
-      setQuickErr(err?.response?.data?.error || err?.message || 'Failed')
+      setQuickErr(err?.response?.data?.error || err?.message || t('teacherClassManagement.actionFailed'))
     } finally {
       setQuickBusy(false)
     }
@@ -186,17 +188,17 @@ export function ClassManagement() {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div>
-              <h1 className="text-2xl font-semibold mb-1">Class management</h1>
+              <h1 className="text-2xl font-semibold mb-1">{t('teacherClassManagement.title')}</h1>
               <p className="text-muted-foreground">
-                Your classes (as main or subject teacher). Open a class for full detail.
+                {t('teacherClassManagement.subtitle')}
               </p>
             </div>
 
             {pendingLoading ? null : pendingInvitations.length ? (
               <div className="mb-6 p-4 rounded-2xl border border-border bg-white">
-                <h2 className="font-medium mb-2">Pending invitations</h2>
+                <h2 className="font-medium mb-2">{t('teacherClassManagement.pendingInvitations')}</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Accept invitations to join classes as a subject teacher.
+                  {t('teacherClassManagement.pendingInvitationsHelp')}
                 </p>
                 <div className="space-y-3">
                   {pendingInvitations.map((inv) => (
@@ -208,7 +210,7 @@ export function ClassManagement() {
                         <p className="font-medium">{inv.className}</p>
                         {inv.invite?.email ? (
                           <p className="text-sm text-muted-foreground">
-                            Invited: {inv.invite.email}
+                            {t('teacherClassManagement.invited', { email: inv.invite.email })}
                           </p>
                         ) : null}
                       </div>
@@ -221,13 +223,13 @@ export function ClassManagement() {
                               await load()
                               await loadPendingInvitations()
                             } catch (e) {
-                              alert(e?.response?.data?.error || e?.message || 'Accept failed')
+                              alert(e?.response?.data?.error || e?.message || t('teacherClassManagement.acceptFailed'))
                             }
                           }}
                           className="px-3 py-2 rounded-xl bg-primary text-white text-sm"
                           disabled={quickBusy || pendingLoading}
                         >
-                          Accept
+                          {t('teacherClassManagement.accept')}
                         </button>
                         <button
                           type="button"
@@ -236,13 +238,13 @@ export function ClassManagement() {
                               await declinePendingSubjectTeacherInvitation(inv.classId)
                               await loadPendingInvitations()
                             } catch (e) {
-                              alert(e?.response?.data?.error || e?.message || 'Decline failed')
+                              alert(e?.response?.data?.error || e?.message || t('teacherClassManagement.declineFailed'))
                             }
                           }}
                           className="px-3 py-2 rounded-xl border border-border text-sm hover:bg-muted"
                           disabled={pendingLoading}
                         >
-                          Decline
+                          {t('teacherClassManagement.decline')}
                         </button>
                       </div>
                     </div>
@@ -259,7 +261,7 @@ export function ClassManagement() {
               className="inline-flex items-center gap-2 bg-primary text-white px-5 py-3 rounded-xl shadow-md hover:opacity-95"
             >
               <Plus className="w-5 h-5" />
-              New class
+              {t('teacherClassManagement.newClass')}
             </button>
           </div>
 
@@ -267,7 +269,7 @@ export function ClassManagement() {
             <div className="mb-6 p-4 rounded-2xl bg-destructive/10 text-destructive flex justify-between items-center">
               <span>{error}</span>
               <button type="button" className="underline text-sm" onClick={load}>
-                Retry
+                {t('common.tryAgain')}
               </button>
             </div>
           ) : null}
@@ -275,17 +277,17 @@ export function ClassManagement() {
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
               <Loader2 className="w-6 h-6 animate-spin" />
-              Loading classes…
+              {t('teacherClassManagement.loading')}
             </div>
           ) : classes.length === 0 ? (
             <div className="text-center py-16 rounded-3xl border border-dashed border-border bg-white/50">
-              <p className="text-muted-foreground mb-4">No classes yet.</p>
+              <p className="text-muted-foreground mb-4">{t('teacherClassManagement.noClasses')}</p>
               <button
                 type="button"
                 onClick={() => setCreateOpen(true)}
                 className="text-primary font-medium underline"
               >
-                Create your first class
+                {t('teacherClassManagement.createFirstClass')}
               </button>
             </div>
           ) : (
@@ -298,23 +300,23 @@ export function ClassManagement() {
                   <div>
                     <h2 className="text-lg font-semibold">{c.name}</h2>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Grade:{' '}
+                      {t('teacherClassManagement.gradeLabel')}{' '}
                       {c.grade !== undefined && c.grade !== null && c.grade !== ''
                         ? c.grade
-                        : '—'}
+                        : t('common.none')}
                     </p>
                     <p className="text-sm mt-2">
-                      <span className="text-muted-foreground">Main teacher:</span>{' '}
+                      <span className="text-muted-foreground">{t('teacherClassManagement.mainTeacher')}</span>{' '}
                       {c.mainTeacher && typeof c.mainTeacher === 'object'
                         ? c.mainTeacher.name
-                        : '—'}
+                        : t('common.none')}
                     </p>
                     <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
                         <Users className="w-4 h-4" />
-                        {c.studentCount ?? 0} students
+                        {t('teacherClassManagement.studentCount', { count: c.studentCount ?? 0 })}
                       </span>
-                      <span>{c.teacherCount ?? 1} teachers</span>
+                      <span>{t('teacherClassManagement.teacherCount', { count: c.teacherCount ?? 1 })}</span>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-auto pt-2 border-t border-border">
@@ -323,7 +325,7 @@ export function ClassManagement() {
                       className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-primary/10 text-primary text-sm font-medium"
                     >
                       <Eye className="w-4 h-4" />
-                      View details
+                      {t('teacherClassManagement.viewDetails')}
                     </Link>
                     <button
                       type="button"
@@ -331,7 +333,7 @@ export function ClassManagement() {
                       className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-border text-sm hover:bg-muted"
                     >
                       <UserPlus className="w-4 h-4" />
-                      Add student
+                      {t('common.addStudent')}
                     </button>
                     {c.isMainTeacher ? (
                       <button
@@ -340,7 +342,7 @@ export function ClassManagement() {
                         className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-border text-sm hover:bg-muted"
                       >
                         <GraduationCap className="w-4 h-4" />
-                        Invite teacher
+                        {t('teacherClassManagement.inviteTeacher')}
                       </button>
                     ) : null}
                     {c.isMainTeacher ? (
@@ -364,7 +366,7 @@ export function ClassManagement() {
         {createOpen ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
             <div className="bg-white rounded-3xl max-w-lg w-full p-8 shadow-xl border border-border">
-              <h2 className="text-lg font-semibold mb-4">Create class</h2>
+              <h2 className="text-lg font-semibold mb-4">{t('teacherClassManagement.createClass')}</h2>
               {formError ? (
                 <p className="text-sm text-destructive mb-3" role="alert">
                   {formError}
@@ -372,20 +374,20 @@ export function ClassManagement() {
               ) : null}
               <form onSubmit={handleCreate} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Name *</label>
+                  <label className="block text-sm font-medium mb-1">{t('teacherClassManagement.nameLabel')}</label>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Grade 1A"
+                    placeholder={t('teacherClassManagement.namePlaceholder')}
                     className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Grade</label>
+                  <label className="block text-sm font-medium mb-1">{t('teacherClassManagement.grade')}</label>
                   <input
                     value={grade}
                     onChange={(e) => setGrade(e.target.value)}
-                    placeholder="e.g. 1"
+                    placeholder={t('teacherClassManagement.gradePlaceholder')}
                     className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
@@ -396,14 +398,14 @@ export function ClassManagement() {
                     onClick={() => setCreateOpen(false)}
                     disabled={submitting}
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
                     className="flex-1 py-3 rounded-xl bg-primary text-white disabled:opacity-60"
                   >
-                    {submitting ? 'Saving…' : 'Create'}
+                    {submitting ? t('teacherClassManagement.saving') : t('common.create')}
                   </button>
                 </div>
               </form>
@@ -415,11 +417,11 @@ export function ClassManagement() {
         {quickMode === 'student' && quickClassId ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-              <h3 className="font-semibold mb-4">Add student</h3>
+              <h3 className="font-semibold mb-4">{t('common.addStudent')}</h3>
               {quickErr ? <p className="text-sm text-destructive mb-2">{quickErr}</p> : null}
               <form onSubmit={submitQuickStudent} className="space-y-3">
                 <input
-                  placeholder="Name *"
+                  placeholder={t('teacherClassManagement.studentNamePlaceholder')}
                   value={quickStudent.name}
                   onChange={(e) =>
                     setQuickStudent((p) => ({ ...p, name: e.target.value }))
@@ -427,7 +429,7 @@ export function ClassManagement() {
                   className="w-full px-4 py-2 border rounded-xl"
                 />
                 <input
-                  placeholder="Age"
+                  placeholder={t('teacherClassManagement.agePlaceholder')}
                   type="number"
                   value={quickStudent.age}
                   onChange={(e) =>
@@ -442,10 +444,10 @@ export function ClassManagement() {
                   }
                   className="w-full px-4 py-2 border rounded-xl"
                 >
-                  <option value="">Gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
+                  <option value="">{t('teacherClassManagement.gender')}</option>
+                  <option value="Male">{t('teacherClassManagement.male')}</option>
+                  <option value="Female">{t('teacherClassManagement.female')}</option>
+                  <option value="Other">{t('teacherClassManagement.other')}</option>
                 </select>
                 <div className="flex gap-2 pt-2">
                   <button
@@ -457,14 +459,14 @@ export function ClassManagement() {
                     }}
                     disabled={quickBusy}
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={quickBusy}
                     className="flex-1 py-2 rounded-xl bg-primary text-white disabled:opacity-50"
                   >
-                    {quickBusy ? 'Saving…' : 'Save'}
+                    {quickBusy ? t('teacherClassManagement.saving') : t('common.save')}
                   </button>
                 </div>
               </form>
@@ -475,14 +477,14 @@ export function ClassManagement() {
         {quickMode === 'teacher' && quickClassId ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-              <h3 className="font-semibold mb-2">Invite subject teacher</h3>
+              <h3 className="font-semibold mb-2">{t('teacherClassManagement.inviteSubjectTeacher')}</h3>
               <p className="text-xs text-muted-foreground mb-4">
-                Teacher&apos;s email (must be a registered teacher account).
+                {t('teacherClassManagement.inviteTeacherHelp')}
               </p>
               {quickErr ? <p className="text-sm text-destructive mb-2">{quickErr}</p> : null}
               <form onSubmit={submitQuickTeacher} className="space-y-3">
                 <input
-                  placeholder="Teacher email"
+                  placeholder={t('teacherClassManagement.teacherEmailPlaceholder')}
                   value={quickTeacherId}
                   onChange={(e) => setQuickTeacherId(e.target.value)}
                   className="w-full px-4 py-2 border rounded-xl font-mono text-sm"
@@ -497,14 +499,14 @@ export function ClassManagement() {
                     }}
                     disabled={quickBusy}
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={quickBusy}
                     className="flex-1 py-2 rounded-xl bg-primary text-white disabled:opacity-50"
                   >
-                    {quickBusy ? 'Inviting…' : 'Invite'}
+                    {quickBusy ? t('teacherClassManagement.inviting') : t('teacherClassManagement.invite')}
                   </button>
                 </div>
               </form>

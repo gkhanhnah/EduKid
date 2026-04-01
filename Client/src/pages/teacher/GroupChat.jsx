@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Sidebar } from '../components/Sidebar.jsx'
-import { useAuth } from '../hooks/useAuth.js'
-import { useSocket } from '../hooks/useSocket.js'
-import { fetchClassChat } from '../services/chat.service.js'
+import { Sidebar } from '../../components/Sidebar.jsx'
+import { useAuth } from '../../hooks/useAuth.js'
+import { useSocket } from '../../hooks/useSocket.js'
+import { fetchClassChat } from '../../services/chat.service.js'
 import { ArrowLeft, Send, AtSign } from 'lucide-react'
 
 const MENTION_REGEX = /(?:^|\s)@([\p{L}\d_.-]*)$/u // typing "@..." at the end
@@ -352,7 +352,7 @@ export function GroupChat() {
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back
+            Back to dashboard
           </Link>
 
           {loading ? (
